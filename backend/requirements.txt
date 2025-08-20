@@ -1,0 +1,14 @@
+# Core
+Flask
+Flask-PyMongo
+Flask-JWT-Extended
+Flask-Cors
+
+# Security
+Werkzeug
+
+
+# Testing
+pytest
+pytest-flask
+coverage
