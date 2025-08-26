@@ -8,8 +8,8 @@ def user_schema():
         "name": "",
         "email": "",
         "password": "",
-        "role": "user",          # user, manager, superuser
-        "is_active": False,      # must be approved to log in
+        "role": "user",
+        "is_active": False,
         "created_at": datetime.utcnow(),
         "updated_at": datetime.utcnow()
     }

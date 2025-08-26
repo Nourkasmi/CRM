@@ -3,6 +3,7 @@ Flask
 Flask-PyMongo
 Flask-JWT-Extended
 Flask-Cors
+Flask-Mail
 
 # Security
 Werkzeug

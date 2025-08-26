@@ -8,6 +8,6 @@ def jwt_required_custom(fn):
     """
     @wraps(fn)
     def wrapper(*args, **kwargs):
-        verify_jwt_in_request()  # raises if token invalid/expired
+        verify_jwt_in_request()
         return fn(*args, **kwargs)
     return wrapper

@@ -1,5 +1,5 @@
-from flask import Blueprint, request
-from src.controllers.auth_controller import register_user, login_user, validate_user
+from flask import Blueprint, request, jsonify
+from src.controllers.auth_controller import register_user, login_user, validate_user, forgot_password, reset_password
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
 auth_bp = Blueprint("auth", __name__)
@@ -19,3 +19,21 @@ def login():
 def validate(user_id):
     current_user = get_jwt_identity()
     return validate_user(user_id, current_user)
+
+@auth_bp.route("/logout", methods=["POST"])
+@jwt_required()
+def logout():
+    return jsonify({"msg": "Successfully logged out"}), 200
+
+# -----------------------------
+# Forgot & Reset Password
+# -----------------------------
+@auth_bp.route("/forgot-password", methods=["POST"])
+def forgot_password_route():
+    data = request.json
+    return forgot_password(data)
+
+@auth_bp.route("/reset-password", methods=["POST"])
+def reset_password_route():
+    data = request.json
+    return reset_password(data)
