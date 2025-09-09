@@ -1,15 +1,28 @@
 from datetime import datetime
+from mongoengine import Document, StringField, BooleanField, DateTimeField, EmailField
 
-def user_schema():
+class User(Document):
     """
-    Default schema for a user document in MongoDB.
+    User model for MongoEngine
     """
-    return {
-        "name": "",
-        "email": "",
-        "password": "",
-        "role": "user",
-        "is_active": False,
-        "created_at": datetime.utcnow(),
-        "updated_at": datetime.utcnow()
-    }
+    name = StringField(required=True)
+    email = EmailField(required=True, unique=True)
+    password = StringField(required=True)
+    role = StringField(default="user", choices=["user", "manager", "superuser"])
+    is_active = BooleanField(default=False)
+    created_at = DateTimeField(default=datetime.utcnow)
+    updated_at = DateTimeField(default=datetime.utcnow)
+
+    meta = {"collection": "users"}
+
+    def to_dict(self):
+        """Serialize user doc into JSON-safe dict"""
+        return {
+            "id": str(self.id),
+            "name": self.name,
+            "email": self.email,
+            "role": self.role,
+            "is_active": self.is_active,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+        }

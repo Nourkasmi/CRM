@@ -1,11 +1,9 @@
 from flask import jsonify
-from bson import ObjectId
 import re
 from datetime import datetime
-from src.config.db import mongo
 from src.utils.password_helper import hash_password, verify_password
 from src.utils.jwt_helper import generate_token, generate_reset_token, verify_reset_token
-from src.models.user_model import user_schema
+from src.models.user_model import User
 from src.utils.email_helper import send_validation_email, send_password_reset_email  # 👈 added
 
 # -------------------------------
@@ -42,40 +40,37 @@ def register_user(data):
     if not name or not email or not password:
         return jsonify({"msg": "Missing required fields"}), 400
 
-    if mongo.db.users.find_one({"email": email}):
+    if User.objects(email=email).first():
         return jsonify({"msg": "User already exists"}), 400
 
     if role == "superuser":
-        existing_super = mongo.db.users.find_one({"role": "superuser"})
+        existing_super = User.objects(role="superuser").first()
         if existing_super:
             return jsonify({"msg": "Superuser already exists"}), 403
 
     hashed_pw = hash_password(password)
 
-    user = {
-        "name": name,
-        "email": email,
-        "password": hashed_pw,
-        "role": role,
-        "is_active": False,  # must be validated
-        "created_at": datetime.utcnow(),
-        "updated_at": datetime.utcnow()
-    }
-
-    result = mongo.db.users.insert_one(user)
-    user["_id"] = result.inserted_id  # include id for email helper
+    user = User(
+        name=name,
+        email=email,
+        password=hashed_pw,
+        role=role,
+        is_active=False,
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow()
+    ).save()
 
     # -------------------------
     # Send validation email
     # -------------------------
     try:
-        send_validation_email(user)
+        send_validation_email(user.to_dict())
     except Exception as e:
         print(f"❌ Failed to send email: {e}")
 
     return jsonify({
         "msg": "User registered successfully",
-        "id": str(result.inserted_id),
+        "id": str(user.id),
         "role": role,
         "is_active": False
     }), 201
@@ -88,20 +83,20 @@ def login_user(data):
     if not email or not password:
         return jsonify({"msg": "Missing email or password"}), 400
 
-    user = mongo.db.users.find_one({"email": email})
-    if not user or not verify_password(password, user["password"]):
+    user = User.objects(email=email).first()
+    if not user or not verify_password(password, user.password):
         return jsonify({"msg": "Invalid credentials"}), 401
 
-    if not user.get("is_active", False):
+    if not user.is_active:
         return jsonify({"msg": "Account not validated yet."}), 403
 
-    token = generate_token(str(user["_id"]), user["role"], user["is_active"])
+    token = generate_token(str(user.id), user.role, user.is_active)
 
     return jsonify({
         "token": token,
-        "role": user["role"],
-        "id": str(user["_id"]),
-        "is_active": user["is_active"]
+        "role": user.role,
+        "id": str(user.id),
+        "is_active": user.is_active
     }), 200
 
 
@@ -113,19 +108,14 @@ def validate_user(user_id, current_user):
     if not current_user:
         return jsonify({"msg": "Unauthorized"}), 403
 
-    try:
-        obj_id = ObjectId(user_id)
-    except:
-        return jsonify({"msg": "Invalid user ID"}), 400
-
-    user = mongo.db.users.find_one({"_id": obj_id})
+    user = User.objects(id=user_id).first()
     if not user:
         return jsonify({"msg": "User not found"}), 404
 
-    if user.get("is_active", False):
+    if user.is_active:
         return jsonify({"msg": "User already active"}), 400
 
-    target_role = user.get("role")
+    target_role = user.role
     current_role = current_user.get("role")
 
     if target_role == "manager":
@@ -139,23 +129,24 @@ def validate_user(user_id, current_user):
     else:
         return jsonify({"msg": f"Validation not allowed for role: {target_role}"}), 403
 
-    mongo.db.users.update_one(
-        {"_id": obj_id},
-        {"$set": {"is_active": True, "updated_at": datetime.utcnow()}}
+    user.update(
+        set__is_active=True,
+        set__updated_at=datetime.utcnow()
     )
 
-    return jsonify({"msg": f"User {user['email']} ({target_role}) validated successfully"}), 200
+    return jsonify({"msg": f"User {user.email} ({target_role}) validated successfully"}), 200
+
 
 def forgot_password(data):
     email = data.get("email")
     if not email:
         return jsonify({"msg": "Email is required"}), 400
 
-    user = mongo.db.users.find_one({"email": email})
+    user = User.objects(email=email).first()
     if user:
         try:
-            token = generate_reset_token(str(user["_id"]))
-            send_password_reset_email(user, token)
+            token = generate_reset_token(str(user.id))
+            send_password_reset_email(user.to_dict(), token)
         except Exception as e:
             print(f"❌ Failed to send reset email: {e}")
 
@@ -178,12 +169,13 @@ def reset_password(data):
         return jsonify({"msg": "Password does not meet strength requirements"}), 400
 
     hashed_pw = hash_password(new_password)
-    result = mongo.db.users.update_one(
-        {"_id": ObjectId(user_id)},
-        {"$set": {"password": hashed_pw, "updated_at": datetime.utcnow()}}
-    )
+    user = User.objects(id=user_id).first()
+    if not user:
+        return jsonify({"msg": "User not found"}), 404
 
-    if result.modified_count == 0:
-        return jsonify({"msg": "Password reset failed"}), 500
+    user.update(
+        set__password=hashed_pw,
+        set__updated_at=datetime.utcnow()
+    )
 
     return jsonify({"msg": "Password reset successful"}), 200

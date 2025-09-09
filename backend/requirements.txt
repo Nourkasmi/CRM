@@ -5,6 +5,8 @@ Flask-JWT-Extended
 Flask-Cors
 Flask-Mail
 
+mongoengine
+
 # Security
 Werkzeug
 

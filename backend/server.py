@@ -5,6 +5,11 @@ from datetime import timedelta
 from src.config.db import init_db
 from src.routes.auth_routes import auth_bp
 from src.routes.user_routes import user_bp
+from src.routes.project_routes import project_bp
+from src.routes.task_routes import task_bp
+from src.routes.phase_routes import phase_bp
+from src.routes.file_routes import file_bp
+from src.routes.filetype_routes import filetype_bp
 from src.middlewares.error_handlers import register_error_handlers
 from src.config.mail import init_mail   # 👈 added
 
@@ -27,6 +32,11 @@ init_mail(app)  # 👈 added
 # Register routes
 app.register_blueprint(auth_bp, url_prefix="/auth")
 app.register_blueprint(user_bp, url_prefix="/users")
+app.register_blueprint(project_bp, url_prefix="/projects")
+app.register_blueprint(task_bp, url_prefix="/tasks")
+app.register_blueprint(phase_bp, url_prefix="/phases")
+app.register_blueprint(file_bp, url_prefix="/files")           
+app.register_blueprint(filetype_bp, url_prefix="/filetypes")
 
 # Register global error handlers
 register_error_handlers(app, jwt)
