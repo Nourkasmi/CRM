@@ -47,26 +47,62 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const login = async (email: string, password: string) => {
     try {
       const response = await authAPI.login(email, password);
-      const { access_token, user } = response.data;
+      const { token, role, id, is_active } = response.data;
 
-      localStorage.setItem('token', access_token);
-      localStorage.setItem('user', JSON.stringify(user));
-      setUser(user);
-    } catch (error) {
-      throw new Error('Invalid credentials');
+      // Create user object from login response
+      const userData: User = {
+        id,
+        email,
+        name: email.split('@')[0], // Temporary until we get proper name from backend
+        role: role as 'superuser' | 'manager' | 'user',
+        is_active,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(userData));
+      setUser(userData);
+    } catch (error: any) {
+      console.error('Login error:', error);
+      throw new Error(error.response?.data?.msg || 'Invalid credentials');
     }
   };
 
   const register = async (data: { email: string; name: string; password: string }) => {
     try {
       const response = await authAPI.register(data);
-      const { access_token, user } = response.data;
+      
+      // For registration, we typically get a success message but might not be auto-logged in
+      // depending on whether the account needs validation
+      console.log('Registration successful:', response.data);
+      
+      // If registration is successful but requires validation, don't auto-login
+      if (response.data.msg?.includes('validation') || response.data.is_active === false) {
+        throw new Error('Account created successfully. Please wait for admin validation before logging in.');
+      }
+      
+      // If we get a token back, auto-login
+      if (response.data.token) {
+        const { token, role, id, is_active } = response.data;
+        
+        const userData: User = {
+          id,
+          email: data.email,
+          name: data.name,
+          role: role as 'superuser' | 'manager' | 'user',
+          is_active,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
 
-      localStorage.setItem('token', access_token);
-      localStorage.setItem('user', JSON.stringify(user));
-      setUser(user);
-    } catch (error) {
-      throw new Error('Registration failed');
+        localStorage.setItem('token', token);
+        localStorage.setItem('user', JSON.stringify(userData));
+        setUser(userData);
+      }
+    } catch (error: any) {
+      console.error('Registration error:', error);
+      throw new Error(error.response?.data?.msg || error.message || 'Registration failed');
     }
   };
 

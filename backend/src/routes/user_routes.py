@@ -60,6 +60,16 @@ def update_role(user_id):
 
 
 # -----------------------
+# Validate user (only superuser)
+# -----------------------
+@user_bp.route("/<user_id>/validate", methods=["PUT"])
+@jwt_required_custom
+@role_required("superuser")
+def validate_user(user_id):
+    return controller.validate_user(user_id)
+
+
+# -----------------------
 # Reset own password (requires old password)
 # -----------------------
 @user_bp.route("/me/reset-password", methods=["PUT"])

@@ -37,7 +37,7 @@ export const authAPI = {
   login: (email: string, password: string) =>
     api.post<AuthResponse>('/auth/login', { email, password }),
   register: (data: { email: string; name: string; password: string }) =>
-    api.post<AuthResponse>('/auth/register', data), // ✅ use name
+    api.post<AuthResponse>('/auth/register', data),
   forgotPassword: (email: string) =>
     api.post('/auth/forgot-password', { email }),
   resetPassword: (token: string, password: string) =>
@@ -54,9 +54,11 @@ export const userAPI = {
   updateProfile: (data: Partial<User>) => api.put<User>('/users/me', data),
   changePassword: (oldPassword: string, newPassword: string) =>
     api.put('/users/me/reset-password', { old_password: oldPassword, new_password: newPassword }),
-  validateUser: (userId: string) => api.put(`/users/${userId}/role`),
-  assignRole: (userId: string, role: string) => api.put(`/users/${userId}/role`, { role }),
-  deleteUser: (userId: string) => api.delete(`/users/${userId}`),
+  // ✅ Fixed: Use the correct auth endpoint for validation
+  validateUser: (userId: number) => api.post(`/auth/validate/${userId}`),
+  // ✅ Fixed: Use correct endpoint and parameter format
+  assignRole: (userId: number, role: string) => api.put(`/users/${userId}/role`, { role }),
+  deleteUser: (userId: number) => api.delete(`/users/${userId}`),
 };
 
 // ------------------
@@ -64,57 +66,61 @@ export const userAPI = {
 // ------------------
 export const projectAPI = {
   getAll: () => api.get<Project[]>('/projects/'),
-  getById: (id: string) => api.get<Project>(`/projects/${id}`),
+  getById: (id: number) => api.get<Project>(`/projects/${id}`),
   create: (data: Partial<Project>) => api.post<Project>('/projects/', data),
-  update: (id: string, data: Partial<Project>) => api.put<Project>(`/projects/${id}`, data),
-  delete: (id: string) => api.delete(`/projects/${id}`),
-  archive: (id: string) => api.post(`/projects/${id}/archive`),
+  update: (id: number, data: Partial<Project>) => api.put<Project>(`/projects/${id}`, data),
+  delete: (id: number) => api.delete(`/projects/${id}`),
+  archive: (id: number) => api.post(`/projects/${id}/archive`),
 };
 
 // ------------------
 // Phase endpoints
 // ------------------
 export const phaseAPI = {
-  getByProject: (projectId: string) => api.get<Phase[]>(`/projects/${projectId}/phases`),
-  create: (data: Partial<Phase>) => api.post<Phase>('/phases', data),
-  update: (id: string, data: Partial<Phase>) => api.put<Phase>(`/phases/${id}`, data),
-  delete: (id: string) => api.delete(`/phases/${id}`),
+  getByProject: (projectId: number) => api.get<Phase[]>(`/phases/${projectId}`),
+  create: (data: Partial<Phase> & { project_id: number }) => api.post<Phase>(`/phases/${data.project_id}`, data),
+  update: (id: number, data: Partial<Phase>) => api.put<Phase>(`/phases/update/${id}`, data),
+  delete: (id: number) => api.delete(`/phases/${id}`),
 };
 
 // ------------------
 // Task endpoints
 // ------------------
 export const taskAPI = {
-  getByProject: (projectId: string) => api.get<Task[]>(`/projects/${projectId}/tasks`),
-  create: (data: Partial<Task>) => api.post<Task>('/tasks', data),
-  update: (id: string, data: Partial<Task>) => api.put<Task>(`/tasks/${id}`, data),
-  delete: (id: string) => api.delete(`/tasks/${id}`),
-  updateStatus: (id: string, status: string) => api.patch(`/tasks/${id}/status`, { status }),
+  getByProject: (projectId: number) => api.get<Task[]>(`/tasks/project/${projectId}`),
+  getByPhase: (phaseId: number) => api.get<Task[]>(`/tasks/phase/${phaseId}`),
+  create: (data: Partial<Task>) => api.post<Task>('/tasks/', data),
+  update: (id: number, data: Partial<Task>) => api.put<Task>(`/tasks/${id}`, data),
+  delete: (id: number) => api.delete(`/tasks/${id}`),
+  updateStatus: (id: number, status: string) => api.patch(`/tasks/${id}`, { status }),
+  assignUser: (taskId: number, userId: number) => api.post(`/tasks/${taskId}/assign/${userId}`),
 };
 
 // ------------------
 // File endpoints
 // ------------------
 export const fileAPI = {
-  getByProject: (projectId: string) => api.get<ProjectFile[]>(`/projects/${projectId}/files`),
-  upload: (projectId: string, file: File) => {
+  getByProject: (projectId: number) => api.get<ProjectFile[]>(`/files/project/${projectId}`),
+  upload: (projectId: number, file: File, filetypeId: number) => {
     const formData = new FormData();
     formData.append('file', file);
-    return api.post<ProjectFile>(`/projects/${projectId}/files`, formData, {
+    formData.append('project_id', projectId.toString());
+    formData.append('filetype_id', filetypeId.toString());
+    return api.post<ProjectFile>('/files/', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
   },
-  download: (id: string) => api.get(`/files/${id}/download`, { responseType: 'blob' }),
-  archive: (id: string) => api.post(`/files/${id}/archive`),
-  delete: (id: string) => api.delete(`/files/${id}`),
+  download: (id: number) => api.get(`/files/${id}/download`, { responseType: 'blob' }),
+  archive: (id: number) => api.post(`/files/${id}/archive`),
+  delete: (id: number) => api.delete(`/files/${id}`),
 };
 
 // ------------------
 // File type endpoints
 // ------------------
 export const fileTypeAPI = {
-  getAll: () => api.get<FileType[]>('/filetypes'),
-  create: (data: Partial<FileType>) => api.post<FileType>('/filetypes', data),
-  update: (id: string, data: Partial<FileType>) => api.put<FileType>(`/filetypes/${id}`, data),
-  delete: (id: string) => api.delete(`/filetypes/${id}`),
+  getAll: () => api.get<FileType[]>('/filetypes/'),
+  create: (data: Partial<FileType>) => api.post<FileType>('/filetypes/', data),
+  update: (id: number, data: Partial<FileType>) => api.put<FileType>(`/filetypes/${id}`, data),
+  delete: (id: number) => api.delete(`/filetypes/${id}`),
 };

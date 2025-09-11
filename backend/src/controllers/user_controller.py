@@ -93,6 +93,24 @@ def update_role(user_id, new_role):
 
 
 # -----------------------
+# Validate user
+# -----------------------
+def validate_user(user_id):
+    user = User.objects(id=user_id).first()
+    if not user:
+        return jsonify({"msg": "User not found"}), 404
+
+    if user.is_active:
+        return jsonify({"msg": "User already validated"}), 400
+
+    user.update(
+        set__is_active=True,
+        set__updated_at=datetime.utcnow()
+    )
+    return jsonify({"msg": f"User {user_id} validated successfully"}), 200
+
+
+# -----------------------
 # Reset own password
 # -----------------------
 def reset_own_password(data, current_user):

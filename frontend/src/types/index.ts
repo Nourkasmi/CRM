@@ -1,68 +1,94 @@
 export interface User {
-  id: number;
+  id: string; // MongoDB ObjectId as string
   email: string;
-  name: string; // ✅ changed from username
+  name: string;
   role: 'superuser' | 'manager' | 'user';
-  is_validated: boolean;
+  is_active: boolean; // Changed from is_validated to match backend
   created_at: string;
+  updated_at: string;
 }
 
 export interface Project {
-  id: number;
+  id: string; // MongoDB ObjectId as string
   name: string;
   description: string;
-  status: string;
+  deadline?: string;
+  created_by: {
+    id: string;
+    email: string;
+  };
   created_at: string;
   updated_at: string;
-  manager_id: number;
-  phases?: Phase[];
-  tasks?: Task[];
-  files?: ProjectFile[];
+  is_archived: boolean;
+  managers: Array<{
+    id: string;
+    email: string;
+  }>;
+  members: Array<{
+    id: string;
+    email: string;
+  }>;
+  assigned_to: Array<{
+    id: string;
+    email: string;
+  }>;
+  phases: Phase[];
 }
 
 export interface Phase {
-  id: number;
+  id: string;
   name: string;
-  description: string;
-  status: string;
-  project_id: number;
-  start_date?: string;
-  end_date?: string;
+  project: string; // Project ID
+  deadline?: string;
+  created_at: string;
 }
 
 export interface Task {
-  id: number;
+  id: string;
   title: string;
   description: string;
+  phase: string; // Phase ID
+  project: string; // Project ID
+  created_by: {
+    id: string;
+    email: string;
+  };
+  assigned_to: Array<{
+    id: string;
+    email: string;
+  }>;
   status: 'todo' | 'in_progress' | 'done';
-  priority: 'low' | 'medium' | 'high';
-  assigned_to?: number;
-  project_id: number;
-  phase_id?: number;
-  due_date?: string;
+  deadline?: string;
   created_at: string;
 }
 
 export interface ProjectFile {
-  id: number;
-  name: string;
-  original_name: string;
-  file_type: string;
-  size: number;
-  project_id: number;
-  uploaded_by: number;
+  id: string;
+  filename: string;
+  path: string;
+  uploaded_by: {
+    id: string;
+    email: string;
+  };
+  project: string; // Project ID
+  filetype: {
+    id: string;
+    name: string;
+  };
+  uploaded_at: string;
   is_archived: boolean;
-  created_at: string;
 }
 
 export interface FileType {
-  id: number;
+  id: string;
   name: string;
   description: string;
-  extensions: string[];
+  created_at: string;
 }
 
 export interface AuthResponse {
-  access_token: string;
-  user: User;
+  token: string; // Changed from access_token to match backend
+  role: string;
+  id: string;
+  is_active: boolean;
 }

@@ -49,7 +49,8 @@ export const SuperuserDashboard: React.FC = () => {
       ]);
       setUsers(usersResponse.data);
       setProjects(projectsResponse.data);
-    } catch (err) {
+    } catch (err: any) {
+      console.error('Failed to load data:', err);
       setError('Failed to load data');
     } finally {
       setLoading(false);
@@ -60,8 +61,10 @@ export const SuperuserDashboard: React.FC = () => {
     try {
       await userAPI.validateUser(userId);
       await loadData();
-    } catch (err) {
-      setError('Failed to validate user');
+      setError(''); // Clear any previous errors
+    } catch (err: any) {
+      console.error('Failed to validate user:', err);
+      setError(`Failed to validate user: ${err.response?.data?.msg || err.message}`);
     }
   };
 
@@ -74,8 +77,10 @@ export const SuperuserDashboard: React.FC = () => {
       setSelectedUser(null);
       setNewRole('');
       await loadData();
-    } catch (err) {
-      setError('Failed to assign role');
+      setError(''); // Clear any previous errors
+    } catch (err: any) {
+      console.error('Failed to assign role:', err);
+      setError(`Failed to assign role: ${err.response?.data?.msg || err.message}`);
     }
   };
 
@@ -84,21 +89,28 @@ export const SuperuserDashboard: React.FC = () => {
       try {
         await userAPI.deleteUser(userId);
         await loadData();
-      } catch (err) {
-        setError('Failed to delete user');
+        setError(''); // Clear any previous errors
+      } catch (err: any) {
+        console.error('Failed to delete user:', err);
+        setError(`Failed to delete user: ${err.response?.data?.msg || err.message}`);
       }
     }
   };
 
   const userColumns: GridColDef[] = [
-    { field: 'id', headerName: 'ID', width: 70 },
-    { field: 'username', headerName: 'Username', width: 130 },
-    { field: 'email', headerName: 'Email', width: 200 },
-    { field: 'role', headerName: 'Role', width: 100 },
     { 
-      field: 'is_validated', 
-      headerName: 'Validated', 
+      field: 'id', 
+      headerName: 'ID', 
       width: 100,
+      renderCell: (params) => params.value?.substring(0, 8) || params.value
+    },
+    { field: 'name', headerName: 'Name', width: 150 },
+    { field: 'email', headerName: 'Email', width: 250 },
+    { field: 'role', headerName: 'Role', width: 120 },
+    { 
+      field: 'is_active', 
+      headerName: 'Validated', 
+      width: 120,
       renderCell: (params) => (
         params.value ? '✓' : '✗'
       )
@@ -107,13 +119,14 @@ export const SuperuserDashboard: React.FC = () => {
       field: 'actions',
       type: 'actions',
       headerName: 'Actions',
-      width: 150,
+      width: 200,
       getActions: (params) => [
         <GridActionsCellItem
           icon={<CheckCircle />}
           label="Validate"
           onClick={() => handleValidateUser(params.row.id)}
-          disabled={params.row.is_validated}
+          disabled={params.row.is_active}
+          key="validate"
         />,
         <GridActionsCellItem
           icon={<Edit />}
@@ -123,11 +136,13 @@ export const SuperuserDashboard: React.FC = () => {
             setNewRole(params.row.role);
             setRoleDialogOpen(true);
           }}
+          key="edit"
         />,
         <GridActionsCellItem
           icon={<Delete />}
           label="Delete"
           onClick={() => handleDeleteUser(params.row.id)}
+          key="delete"
         />,
       ],
     },
@@ -136,8 +151,8 @@ export const SuperuserDashboard: React.FC = () => {
   const stats = {
     totalUsers: users.length,
     totalProjects: projects.length,
-    validatedUsers: users.filter(u => u.is_validated).length,
-    pendingUsers: users.filter(u => !u.is_validated).length,
+    validatedUsers: users.filter(u => u.is_active).length,
+    pendingUsers: users.filter(u => !u.is_active).length,
   };
 
   return (
@@ -146,7 +161,15 @@ export const SuperuserDashboard: React.FC = () => {
         Superuser Dashboard
       </Typography>
 
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {error && (
+        <Alert 
+          severity="error" 
+          sx={{ mb: 2 }} 
+          onClose={() => setError('')}
+        >
+          {error}
+        </Alert>
+      )}
 
       <Grid container spacing={3} sx={{ mb: 3 }}>
         <Grid item xs={12} sm={6} md={3}>
@@ -218,6 +241,7 @@ export const SuperuserDashboard: React.FC = () => {
             initialState={{
               pagination: { paginationModel: { pageSize: 10 } },
             }}
+            getRowId={(row) => row.id}
           />
         </CardContent>
       </Card>

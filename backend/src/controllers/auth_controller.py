@@ -4,7 +4,7 @@ from datetime import datetime
 from src.utils.password_helper import hash_password, verify_password
 from src.utils.jwt_helper import generate_token, generate_reset_token, verify_reset_token
 from src.models.user_model import User
-from src.utils.email_helper import send_validation_email, send_password_reset_email  # 👈 added
+from src.utils.email_helper import send_validation_email, send_password_reset_email
 
 # -------------------------------
 # Helpers for validation
@@ -92,11 +92,17 @@ def login_user(data):
 
     token = generate_token(str(user.id), user.role, user.is_active)
 
+    # ✅ Fixed: Return the expected structure for frontend
     return jsonify({
-        "token": token,
-        "role": user.role,
-        "id": str(user.id),
-        "is_active": user.is_active
+        "access_token": token,  # ✅ Changed from "token" to "access_token"
+        "user": {
+            "id": str(user.id),
+            "name": user.name,  # ✅ Include name field
+            "email": user.email,
+            "role": user.role,
+            "is_validated": user.is_active,  # ✅ Map is_active to is_validated
+            "created_at": user.created_at.isoformat() if user.created_at else None
+        }
     }), 200
 
 
