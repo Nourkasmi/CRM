@@ -15,12 +15,13 @@ from src.config.mail import init_mail
 
 app = Flask(__name__)
 
-# ✅ Full CORS config
+# ✅ Strict CORS configuration for frontend (Vite on 5173)
 CORS(
     app,
-    resources={r"/api/*": {"origins": "http://localhost:5173"}},
+    resources={r"/api/*": {"origins": ["http://localhost:5173", "http://127.0.0.1:5173"]}},
     supports_credentials=True,
     allow_headers=["Content-Type", "Authorization"],
+    expose_headers=["Content-Type", "Authorization"],
     methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
 )
 
@@ -29,12 +30,14 @@ CORS(
 # -------------------------
 app.config["JWT_SECRET_KEY"] = "dev-secret"
 app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=4)
+app.config["JWT_TOKEN_LOCATION"] = ["headers"]   # ✅ tokens only in headers
+
 jwt = JWTManager(app)
 
-# Init DB
+# -------------------------
+# Init DB & Mail
+# -------------------------
 init_db(app)
-
-# Init Mail
 init_mail(app)
 
 # -------------------------
@@ -48,8 +51,13 @@ app.register_blueprint(phase_bp, url_prefix="/api/phases")
 app.register_blueprint(file_bp, url_prefix="/api/files")
 app.register_blueprint(filetype_bp, url_prefix="/api/filetypes")
 
+# -------------------------
 # Register global error handlers
+# -------------------------
 register_error_handlers(app, jwt)
 
+# -------------------------
+# Run server
+# -------------------------
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    app.run(host="0.0.0.0", port=5000, debug=True)

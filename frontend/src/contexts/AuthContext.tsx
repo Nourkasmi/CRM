@@ -47,20 +47,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const login = async (email: string, password: string) => {
     try {
       const response = await authAPI.login(email, password);
-      const { token, role, id, is_active } = response.data;
+      const { access_token, user } = response.data;
 
-      // Create user object from login response
+      // Build user object from backend response
       const userData: User = {
-        id,
-        email,
-        name: email.split('@')[0], // Temporary until we get proper name from backend
-        role: role as 'superuser' | 'manager' | 'user',
-        is_active,
-        created_at: new Date().toISOString(),
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role as 'superuser' | 'manager' | 'user',
+        is_active: user.is_validated, // ✅ map backend is_validated → frontend is_active
+        created_at: user.created_at || new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
 
-      localStorage.setItem('token', token);
+      localStorage.setItem('token', access_token);
       localStorage.setItem('user', JSON.stringify(userData));
       setUser(userData);
     } catch (error: any) {
@@ -72,31 +72,29 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const register = async (data: { email: string; name: string; password: string }) => {
     try {
       const response = await authAPI.register(data);
-      
-      // For registration, we typically get a success message but might not be auto-logged in
-      // depending on whether the account needs validation
+
       console.log('Registration successful:', response.data);
-      
-      // If registration is successful but requires validation, don't auto-login
+
+      // If registration requires validation, don't auto-login
       if (response.data.msg?.includes('validation') || response.data.is_active === false) {
         throw new Error('Account created successfully. Please wait for admin validation before logging in.');
       }
-      
-      // If we get a token back, auto-login
-      if (response.data.token) {
-        const { token, role, id, is_active } = response.data;
-        
+
+      // If backend also returns token + user, auto-login
+      if (response.data.access_token && response.data.user) {
+        const { access_token, user } = response.data;
+
         const userData: User = {
-          id,
-          email: data.email,
-          name: data.name,
-          role: role as 'superuser' | 'manager' | 'user',
-          is_active,
-          created_at: new Date().toISOString(),
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role as 'superuser' | 'manager' | 'user',
+          is_active: user.is_validated,
+          created_at: user.created_at || new Date().toISOString(),
           updated_at: new Date().toISOString(),
         };
 
-        localStorage.setItem('token', token);
+        localStorage.setItem('token', access_token);
         localStorage.setItem('user', JSON.stringify(userData));
         setUser(userData);
       }

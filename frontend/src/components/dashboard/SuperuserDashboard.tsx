@@ -17,20 +17,20 @@ import {
   Alert,
 } from '@mui/material';
 import { DataGrid, GridColDef, GridActionsCellItem } from '@mui/x-data-grid';
-import { 
-  People, 
-  Work, 
-  CheckCircle, 
-  Delete, 
-  Edit, 
-  PersonAdd 
+import {
+  People,
+  Work,
+  CheckCircle,
+  Delete,
+  Edit,
+  PersonAdd
 } from '@mui/icons-material';
 import { User } from '../../types';
 import { userAPI, projectAPI } from '../../services/api';
 
 export const SuperuserDashboard: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
-  const [projects, setProjects] = useState([]);
+  const [projects, setProjects] = useState<any[]>([]);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [roleDialogOpen, setRoleDialogOpen] = useState(false);
   const [newRole, setNewRole] = useState('');
@@ -47,86 +47,82 @@ export const SuperuserDashboard: React.FC = () => {
         userAPI.getAll(),
         projectAPI.getAll()
       ]);
-      setUsers(usersResponse.data);
+
+      // Map backend fields → frontend DataGrid format
+      const mappedUsers = usersResponse.data.map((u: any) => ({
+        id: u.id,
+        username: u.name,          // backend has "name"
+        email: u.email,
+        role: u.role,
+        is_validated: u.is_active  // backend uses is_active
+      }));
+
+      setUsers(mappedUsers);
       setProjects(projectsResponse.data);
-    } catch (err: any) {
-      console.error('Failed to load data:', err);
+    } catch (err) {
+      console.error(err);
       setError('Failed to load data');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleValidateUser = async (userId: number) => {
+  const handleValidateUser = async (userId: string) => {
     try {
       await userAPI.validateUser(userId);
       await loadData();
-      setError(''); // Clear any previous errors
-    } catch (err: any) {
-      console.error('Failed to validate user:', err);
-      setError(`Failed to validate user: ${err.response?.data?.msg || err.message}`);
+    } catch (err) {
+      setError('Failed to validate user');
     }
   };
 
   const handleAssignRole = async () => {
     if (!selectedUser) return;
-    
+
     try {
       await userAPI.assignRole(selectedUser.id, newRole);
       setRoleDialogOpen(false);
       setSelectedUser(null);
       setNewRole('');
       await loadData();
-      setError(''); // Clear any previous errors
-    } catch (err: any) {
-      console.error('Failed to assign role:', err);
-      setError(`Failed to assign role: ${err.response?.data?.msg || err.message}`);
+    } catch (err) {
+      setError('Failed to assign role');
     }
   };
 
-  const handleDeleteUser = async (userId: number) => {
+  const handleDeleteUser = async (userId: string) => {
     if (window.confirm('Are you sure you want to delete this user?')) {
       try {
         await userAPI.deleteUser(userId);
         await loadData();
-        setError(''); // Clear any previous errors
-      } catch (err: any) {
-        console.error('Failed to delete user:', err);
-        setError(`Failed to delete user: ${err.response?.data?.msg || err.message}`);
+      } catch (err) {
+        setError('Failed to delete user');
       }
     }
   };
 
   const userColumns: GridColDef[] = [
-    { 
-      field: 'id', 
-      headerName: 'ID', 
-      width: 100,
-      renderCell: (params) => params.value?.substring(0, 8) || params.value
-    },
-    { field: 'name', headerName: 'Name', width: 150 },
-    { field: 'email', headerName: 'Email', width: 250 },
+    { field: 'id', headerName: 'ID', width: 200 },
+    { field: 'username', headerName: 'Username', width: 150 },
+    { field: 'email', headerName: 'Email', width: 200 },
     { field: 'role', headerName: 'Role', width: 120 },
-    { 
-      field: 'is_active', 
-      headerName: 'Validated', 
+    {
+      field: 'is_validated',
+      headerName: 'Validated',
       width: 120,
-      renderCell: (params) => (
-        params.value ? '✓' : '✗'
-      )
+      renderCell: (params) => (params.value ? '✓' : '✗')
     },
     {
       field: 'actions',
       type: 'actions',
       headerName: 'Actions',
-      width: 200,
+      width: 180,
       getActions: (params) => [
         <GridActionsCellItem
           icon={<CheckCircle />}
           label="Validate"
           onClick={() => handleValidateUser(params.row.id)}
-          disabled={params.row.is_active}
-          key="validate"
+          disabled={params.row.is_validated}
         />,
         <GridActionsCellItem
           icon={<Edit />}
@@ -136,13 +132,11 @@ export const SuperuserDashboard: React.FC = () => {
             setNewRole(params.row.role);
             setRoleDialogOpen(true);
           }}
-          key="edit"
         />,
         <GridActionsCellItem
           icon={<Delete />}
           label="Delete"
           onClick={() => handleDeleteUser(params.row.id)}
-          key="delete"
         />,
       ],
     },
@@ -151,8 +145,8 @@ export const SuperuserDashboard: React.FC = () => {
   const stats = {
     totalUsers: users.length,
     totalProjects: projects.length,
-    validatedUsers: users.filter(u => u.is_active).length,
-    pendingUsers: users.filter(u => !u.is_active).length,
+    validatedUsers: users.filter(u => u.is_validated).length,
+    pendingUsers: users.filter(u => !u.is_validated).length,
   };
 
   return (
@@ -161,15 +155,7 @@ export const SuperuserDashboard: React.FC = () => {
         Superuser Dashboard
       </Typography>
 
-      {error && (
-        <Alert 
-          severity="error" 
-          sx={{ mb: 2 }} 
-          onClose={() => setError('')}
-        >
-          {error}
-        </Alert>
-      )}
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
       <Grid container spacing={3} sx={{ mb: 3 }}>
         <Grid item xs={12} sm={6} md={3}>
@@ -241,7 +227,6 @@ export const SuperuserDashboard: React.FC = () => {
             initialState={{
               pagination: { paginationModel: { pageSize: 10 } },
             }}
-            getRowId={(row) => row.id}
           />
         </CardContent>
       </Card>
