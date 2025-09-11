@@ -10,7 +10,7 @@ from src.models.phase_model import Phase   # 👈 default phases
 # Create a new project (superuser or manager)
 # -------------------------------
 def create_project(data, current_user):
-    if current_user.get("role") not in ["superuser", "manager"]:
+    if not current_user or current_user.get("role") not in ["superuser", "manager"]:
         return jsonify({"msg": "Only superusers or managers can create projects"}), 403
 
     name = data.get("name")
@@ -56,7 +56,7 @@ def create_project(data, current_user):
 # Assign a manager to project (superuser only)
 # -------------------------------
 def assign_manager(project_id, manager_id, current_user):
-    if current_user.get("role") != "superuser":
+    if not current_user or current_user.get("role") != "superuser":
         return jsonify({"msg": "Only superusers can assign managers"}), 403
 
     try:
@@ -86,7 +86,7 @@ def assign_manager(project_id, manager_id, current_user):
 # Assign user to project (manager/superuser only)
 # -------------------------------
 def assign_user(project_id, user_id, current_user):
-    if current_user.get("role") not in ["manager", "superuser"]:
+    if not current_user or current_user.get("role") not in ["manager", "superuser"]:
         return jsonify({"msg": "Only managers or superusers can assign users"}), 403
 
     try:
@@ -105,7 +105,6 @@ def assign_user(project_id, user_id, current_user):
     if not user:
         return jsonify({"msg": "User not found or inactive"}), 404
 
-    # Managers can only assign users to their own projects
     try:
         current_user_id = ObjectId(current_user["id"])
     except Exception:
@@ -125,22 +124,37 @@ def assign_user(project_id, user_id, current_user):
 # Get all projects (filtered by role)
 # -------------------------------
 def get_projects(current_user):
+    if not current_user or "id" not in current_user:
+        return jsonify({"msg": "Unauthorized"}), 401
+
     role = current_user.get("role")
     user_id = current_user.get("id")
 
     try:
         user_obj_id = ObjectId(user_id)
-    except Exception:
-        return jsonify({"msg": "Invalid user ID"}), 400
+    except Exception as e:
+        return jsonify({"msg": f"Invalid user ID: {str(e)}"}), 400
 
-    if role == "superuser":
-        projects = Project.objects()
-    elif role == "manager":
-        projects = Project.objects(Q(created_by=user_obj_id) | Q(managers__in=[user_obj_id]))
-    else:  # normal user
-        projects = Project.objects(members__in=[user_obj_id])
+    try:
+        if role == "superuser":
+            projects = Project.objects()
+        elif role == "manager":
+            projects = Project.objects(Q(created_by=user_obj_id) | Q(managers__in=[user_obj_id]))
+        else:  # normal user
+            projects = Project.objects(members__in=[user_obj_id])
 
-    return jsonify([p.to_dict() for p in projects]), 200
+        # ✅ catch to_dict issues
+        project_dicts = []
+        for p in projects:
+            try:
+                project_dicts.append(p.to_dict())
+            except Exception as e:
+                return jsonify({"msg": f"Error serializing project: {str(e)}"}), 500
+
+        return jsonify(project_dicts), 200
+
+    except Exception as e:
+        return jsonify({"msg": f"Unexpected server error: {str(e)}"}), 500
 
 
 # -------------------------------
@@ -213,7 +227,7 @@ def update_project(project_id, data, current_user):
 # Delete project (superuser only)
 # -------------------------------
 def delete_project(project_id, current_user):
-    if current_user.get("role") != "superuser":
+    if not current_user or current_user.get("role") != "superuser":
         return jsonify({"msg": "Only superusers can delete projects"}), 403
 
     try:
@@ -232,7 +246,7 @@ def delete_project(project_id, current_user):
 # Archive or Unarchive project (superuser only)
 # -------------------------------
 def archive_project(project_id, current_user, archive=True):
-    if current_user.get("role") != "superuser":
+    if not current_user or current_user.get("role") != "superuser":
         return jsonify({"msg": "Only superusers can archive projects"}), 403
 
     try:
