@@ -1,8 +1,10 @@
 from flask import jsonify
 from datetime import datetime
+from bson import ObjectId
 from src.models.user_model import User
 from src.utils.password_helper import hash_password, verify_password
 from src.controllers.auth_controller import is_strong_password
+
 
 # -----------------------
 # Get all users
@@ -16,6 +18,11 @@ def get_users():
 # Get single user
 # -----------------------
 def get_user(user_id, current_user):
+    try:
+        user_obj_id = ObjectId(user_id)
+    except Exception:
+        return jsonify({"msg": "Invalid user ID"}), 400
+
     requester_id = current_user.get("id")
     role = current_user.get("role")
     is_active = current_user.get("is_active", False)
@@ -27,7 +34,7 @@ def get_user(user_id, current_user):
     else:
         return jsonify({"msg": "Forbidden"}), 403
 
-    user = User.objects(id=user_id).first()
+    user = User.objects(id=user_obj_id).first()
     if not user:
         return jsonify({"msg": "User not found"}), 404
 
@@ -38,7 +45,12 @@ def get_user(user_id, current_user):
 # Delete user
 # -----------------------
 def delete_user(user_id):
-    user = User.objects(id=user_id).first()
+    try:
+        user_obj_id = ObjectId(user_id)
+    except Exception:
+        return jsonify({"msg": "Invalid user ID"}), 400
+
+    user = User.objects(id=user_obj_id).first()
     if not user:
         return jsonify({"msg": "User not found"}), 404
 
@@ -50,7 +62,11 @@ def delete_user(user_id):
 # Update own profile
 # -----------------------
 def update_profile(data, current_user):
-    user_id = current_user.get("id")
+    try:
+        user_obj_id = ObjectId(current_user.get("id"))
+    except Exception:
+        return jsonify({"msg": "Invalid current user ID"}), 400
+
     is_active = current_user.get("is_active", False)
 
     if not is_active:
@@ -69,7 +85,7 @@ def update_profile(data, current_user):
 
     update_fields["updated_at"] = datetime.utcnow()
 
-    user = User.objects(id=user_id).first()
+    user = User.objects(id=user_obj_id).first()
     if not user:
         return jsonify({"msg": "User not found"}), 404
 
@@ -84,11 +100,16 @@ def update_role(user_id, new_role):
     if new_role not in ["user", "manager", "superuser"]:
         return jsonify({"msg": "Invalid role"}), 400
 
-    user = User.objects(id=user_id).first()
+    try:
+        user_obj_id = ObjectId(user_id)
+    except Exception:
+        return jsonify({"msg": "Invalid user ID"}), 400
+
+    user = User.objects(id=user_obj_id).first()
     if not user:
         return jsonify({"msg": "User not found"}), 404
 
-    user.update(set__role=new_role)
+    user.update(set__role=new_role, set__updated_at=datetime.utcnow())
     return jsonify({"msg": f"Role updated to {new_role}"}), 200
 
 
@@ -96,7 +117,12 @@ def update_role(user_id, new_role):
 # Validate user
 # -----------------------
 def validate_user(user_id):
-    user = User.objects(id=user_id).first()
+    try:
+        user_obj_id = ObjectId(user_id)
+    except Exception:
+        return jsonify({"msg": "Invalid user ID"}), 400
+
+    user = User.objects(id=user_obj_id).first()
     if not user:
         return jsonify({"msg": "User not found"}), 404
 
@@ -114,9 +140,12 @@ def validate_user(user_id):
 # Reset own password
 # -----------------------
 def reset_own_password(data, current_user):
-    user_id = current_user.get("id")
-    is_active = current_user.get("is_active", False)
+    try:
+        user_obj_id = ObjectId(current_user.get("id"))
+    except Exception:
+        return jsonify({"msg": "Invalid current user ID"}), 400
 
+    is_active = current_user.get("is_active", False)
     if not is_active:
         return jsonify({"msg": "Account not validated"}), 403
 
@@ -126,7 +155,7 @@ def reset_own_password(data, current_user):
     if not old_password or not new_password:
         return jsonify({"msg": "Old and new password required"}), 400
 
-    user = User.objects(id=user_id).first()
+    user = User.objects(id=user_obj_id).first()
     if not user:
         return jsonify({"msg": "User not found"}), 404
 
@@ -145,7 +174,7 @@ def reset_own_password(data, current_user):
 
 
 # -----------------------
-# Reset password (superuser resets any user without old password)
+# Reset password (superuser resets any user)
 # -----------------------
 def reset_user_password(user_id, new_password):
     if not new_password:
@@ -154,7 +183,12 @@ def reset_user_password(user_id, new_password):
     if not is_strong_password(new_password):
         return jsonify({"msg": "Weak password. Must be ≥8 chars, with upper, lower, digit, special"}), 400
 
-    user = User.objects(id=user_id).first()
+    try:
+        user_obj_id = ObjectId(user_id)
+    except Exception:
+        return jsonify({"msg": "Invalid user ID"}), 400
+
+    user = User.objects(id=user_obj_id).first()
     if not user:
         return jsonify({"msg": "User not found"}), 404
 

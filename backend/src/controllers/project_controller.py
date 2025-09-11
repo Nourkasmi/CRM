@@ -1,9 +1,10 @@
 from flask import jsonify
 from datetime import datetime
+from bson import ObjectId
 from mongoengine.queryset.visitor import Q
 from src.models.project_model import Project
 from src.models.user_model import User
-from src.models.phase_model import Phase   # 👈 new import
+from src.models.phase_model import Phase   # 👈 default phases
 
 # -------------------------------
 # Create a new project (superuser or manager)
@@ -19,7 +20,11 @@ def create_project(data, current_user):
     if not name:
         return jsonify({"msg": "Project name is required"}), 400
 
-    creator = User.objects(id=current_user["id"]).first()
+    try:
+        creator = User.objects(id=ObjectId(current_user["id"])).first()
+    except Exception:
+        return jsonify({"msg": "Invalid user ID"}), 400
+
     if not creator:
         return jsonify({"msg": "Creator not found"}), 404
 
@@ -54,11 +59,19 @@ def assign_manager(project_id, manager_id, current_user):
     if current_user.get("role") != "superuser":
         return jsonify({"msg": "Only superusers can assign managers"}), 403
 
-    project = Project.objects(id=project_id).first()
+    try:
+        project = Project.objects(id=ObjectId(project_id)).first()
+    except Exception:
+        return jsonify({"msg": "Invalid project ID"}), 400
+
     if not project:
         return jsonify({"msg": "Project not found"}), 404
 
-    manager = User.objects(id=manager_id, role="manager", is_active=True).first()
+    try:
+        manager = User.objects(id=ObjectId(manager_id), role="manager", is_active=True).first()
+    except Exception:
+        return jsonify({"msg": "Invalid manager ID"}), 400
+
     if not manager:
         return jsonify({"msg": "Manager not found or inactive"}), 404
 
@@ -76,16 +89,29 @@ def assign_user(project_id, user_id, current_user):
     if current_user.get("role") not in ["manager", "superuser"]:
         return jsonify({"msg": "Only managers or superusers can assign users"}), 403
 
-    project = Project.objects(id=project_id).first()
+    try:
+        project = Project.objects(id=ObjectId(project_id)).first()
+    except Exception:
+        return jsonify({"msg": "Invalid project ID"}), 400
+
     if not project:
         return jsonify({"msg": "Project not found"}), 404
 
-    user = User.objects(id=user_id, role="user", is_active=True).first()
+    try:
+        user = User.objects(id=ObjectId(user_id), role="user", is_active=True).first()
+    except Exception:
+        return jsonify({"msg": "Invalid user ID"}), 400
+
     if not user:
         return jsonify({"msg": "User not found or inactive"}), 404
 
     # Managers can only assign users to their own projects
-    if current_user.get("role") == "manager" and str(current_user["id"]) not in [str(m.id) for m in project.managers] and str(current_user["id"]) != str(project.created_by.id):
+    try:
+        current_user_id = ObjectId(current_user["id"])
+    except Exception:
+        return jsonify({"msg": "Invalid current user ID"}), 400
+
+    if current_user.get("role") == "manager" and current_user_id not in [m.id for m in project.managers] and current_user_id != project.created_by.id:
         return jsonify({"msg": "You are not authorized to assign users to this project"}), 403
 
     if user in project.members:
@@ -102,12 +128,17 @@ def get_projects(current_user):
     role = current_user.get("role")
     user_id = current_user.get("id")
 
+    try:
+        user_obj_id = ObjectId(user_id)
+    except Exception:
+        return jsonify({"msg": "Invalid user ID"}), 400
+
     if role == "superuser":
         projects = Project.objects()
     elif role == "manager":
-        projects = Project.objects(Q(created_by=user_id) | Q(managers__in=[user_id]))
+        projects = Project.objects(Q(created_by=user_obj_id) | Q(managers__in=[user_obj_id]))
     else:  # normal user
-        projects = Project.objects(members__in=[user_id])
+        projects = Project.objects(members__in=[user_obj_id])
 
     return jsonify([p.to_dict() for p in projects]), 200
 
@@ -116,18 +147,25 @@ def get_projects(current_user):
 # Get single project (filtered by role)
 # -------------------------------
 def get_project(project_id, current_user):
-    project = Project.objects(id=project_id).first()
+    try:
+        project = Project.objects(id=ObjectId(project_id)).first()
+    except Exception:
+        return jsonify({"msg": "Invalid project ID"}), 400
+
     if not project:
         return jsonify({"msg": "Project not found"}), 404
 
     role = current_user.get("role")
-    user_id = current_user.get("id")
+    try:
+        user_obj_id = ObjectId(current_user.get("id"))
+    except Exception:
+        return jsonify({"msg": "Invalid user ID"}), 400
 
     if role == "superuser":
         pass
-    elif role == "manager" and str(user_id) not in [str(m.id) for m in project.managers] and str(user_id) != str(project.created_by.id):
+    elif role == "manager" and user_obj_id not in [m.id for m in project.managers] and user_obj_id != project.created_by.id:
         return jsonify({"msg": "You are not authorized to view this project"}), 403
-    elif role == "user" and str(user_id) not in [str(m.id) for m in project.members]:
+    elif role == "user" and user_obj_id not in [m.id for m in project.members]:
         return jsonify({"msg": "You are not authorized to view this project"}), 403
 
     return jsonify(project.to_dict()), 200
@@ -137,14 +175,21 @@ def get_project(project_id, current_user):
 # Update project (superuser or manager if owns/assigned)
 # -------------------------------
 def update_project(project_id, data, current_user):
-    project = Project.objects(id=project_id).first()
+    try:
+        project = Project.objects(id=ObjectId(project_id)).first()
+    except Exception:
+        return jsonify({"msg": "Invalid project ID"}), 400
+
     if not project:
         return jsonify({"msg": "Project not found"}), 404
 
     role = current_user.get("role")
-    user_id = current_user.get("id")
+    try:
+        user_obj_id = ObjectId(current_user.get("id"))
+    except Exception:
+        return jsonify({"msg": "Invalid user ID"}), 400
 
-    if role != "superuser" and str(user_id) not in [str(m.id) for m in project.managers] and str(user_id) != str(project.created_by.id):
+    if role != "superuser" and user_obj_id not in [m.id for m in project.managers] and user_obj_id != project.created_by.id:
         return jsonify({"msg": "Only superuser or authorized manager can update this project"}), 403
 
     update_fields = {}
@@ -171,12 +216,17 @@ def delete_project(project_id, current_user):
     if current_user.get("role") != "superuser":
         return jsonify({"msg": "Only superusers can delete projects"}), 403
 
-    project = Project.objects(id=project_id).first()
+    try:
+        project = Project.objects(id=ObjectId(project_id)).first()
+    except Exception:
+        return jsonify({"msg": "Invalid project ID"}), 400
+
     if not project:
         return jsonify({"msg": "Project not found"}), 404
 
     project.delete()
     return jsonify({"msg": "Project deleted successfully"}), 200
+
 
 # -------------------------------
 # Archive or Unarchive project (superuser only)
@@ -185,7 +235,11 @@ def archive_project(project_id, current_user, archive=True):
     if current_user.get("role") != "superuser":
         return jsonify({"msg": "Only superusers can archive projects"}), 403
 
-    project = Project.objects(id=project_id).first()
+    try:
+        project = Project.objects(id=ObjectId(project_id)).first()
+    except Exception:
+        return jsonify({"msg": "Invalid project ID"}), 400
+
     if not project:
         return jsonify({"msg": "Project not found"}), 404
 
