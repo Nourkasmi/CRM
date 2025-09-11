@@ -46,7 +46,7 @@ export const Register: React.FC = () => {
     try {
       await register({
         email: formData.email,
-        username: formData.username,
+        name: formData.username, // ✅ map username → name
         password: formData.password,
       });
       navigate('/dashboard');

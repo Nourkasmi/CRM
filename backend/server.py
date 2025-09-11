@@ -11,32 +11,42 @@ from src.routes.phase_routes import phase_bp
 from src.routes.file_routes import file_bp
 from src.routes.filetype_routes import filetype_bp
 from src.middlewares.error_handlers import register_error_handlers
-from src.config.mail import init_mail   # 👈 added
+from src.config.mail import init_mail
 
 app = Flask(__name__)
-CORS(app)
+
+# ✅ Full CORS config
+CORS(
+    app,
+    resources={r"/api/*": {"origins": "http://localhost:5173"}},
+    supports_credentials=True,
+    allow_headers=["Content-Type", "Authorization"],
+    methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+)
 
 # -------------------------
 # JWT Configuration
 # -------------------------
 app.config["JWT_SECRET_KEY"] = "dev-secret"
-app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=4)  # Tokens expire after 4 hours
+app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=4)
 jwt = JWTManager(app)
 
 # Init DB
 init_db(app)
 
 # Init Mail
-init_mail(app)  # 👈 added
+init_mail(app)
 
-# Register routes
-app.register_blueprint(auth_bp, url_prefix="/auth")
-app.register_blueprint(user_bp, url_prefix="/users")
-app.register_blueprint(project_bp, url_prefix="/projects")
-app.register_blueprint(task_bp, url_prefix="/tasks")
-app.register_blueprint(phase_bp, url_prefix="/phases")
-app.register_blueprint(file_bp, url_prefix="/files")           
-app.register_blueprint(filetype_bp, url_prefix="/filetypes")
+# -------------------------
+# Register routes with /api prefix
+# -------------------------
+app.register_blueprint(auth_bp, url_prefix="/api/auth")
+app.register_blueprint(user_bp, url_prefix="/api/users")
+app.register_blueprint(project_bp, url_prefix="/api/projects")
+app.register_blueprint(task_bp, url_prefix="/api/tasks")
+app.register_blueprint(phase_bp, url_prefix="/api/phases")
+app.register_blueprint(file_bp, url_prefix="/api/files")
+app.register_blueprint(filetype_bp, url_prefix="/api/filetypes")
 
 # Register global error handlers
 register_error_handlers(app, jwt)

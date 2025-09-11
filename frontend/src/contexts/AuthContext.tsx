@@ -5,7 +5,7 @@ import { authAPI } from '../services/api';
 interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<void>;
-  register: (data: { email: string; username: string; password: string }) => Promise<void>;
+  register: (data: { email: string; name: string; password: string }) => Promise<void>;
   logout: () => void;
   loading: boolean;
 }
@@ -31,7 +31,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     const token = localStorage.getItem('token');
     const savedUser = localStorage.getItem('user');
-    
+
     if (token && savedUser) {
       try {
         setUser(JSON.parse(savedUser));
@@ -47,24 +47,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const login = async (email: string, password: string) => {
     try {
       const response = await authAPI.login(email, password);
-      const { access_token, user: userData } = response.data;
-      
+      const { access_token, user } = response.data;
+
       localStorage.setItem('token', access_token);
-      localStorage.setItem('user', JSON.stringify(userData));
-      setUser(userData);
+      localStorage.setItem('user', JSON.stringify(user));
+      setUser(user);
     } catch (error) {
       throw new Error('Invalid credentials');
     }
   };
 
-  const register = async (data: { email: string; username: string; password: string }) => {
+  const register = async (data: { email: string; name: string; password: string }) => {
     try {
       const response = await authAPI.register(data);
-      const { access_token, user: userData } = response.data;
-      
+      const { access_token, user } = response.data;
+
       localStorage.setItem('token', access_token);
-      localStorage.setItem('user', JSON.stringify(userData));
-      setUser(userData);
+      localStorage.setItem('user', JSON.stringify(user));
+      setUser(user);
     } catch (error) {
       throw new Error('Registration failed');
     }

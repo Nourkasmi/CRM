@@ -1,7 +1,7 @@
 export interface User {
   id: number;
   email: string;
-  username: string;
+  name: string; // ✅ changed from username
   role: 'superuser' | 'manager' | 'user';
   is_validated: boolean;
   created_at: string;

@@ -14,6 +14,8 @@ import { UserDashboard } from './components/dashboard/UserDashboard';
 import { ProjectList } from './components/projects/ProjectList';
 import { ProjectDetail } from './components/projects/ProjectDetail';
 import { useAuth } from './contexts/AuthContext';
+import { ForgotPassword } from "./components/auth/ForgotPassword";
+import { ResetPassword } from "./components/auth/ResetPassword";
 
 const DashboardRouter: React.FC = () => {
   const { user } = useAuth();
@@ -36,8 +38,13 @@ function App() {
       <AuthProvider>
         <Router>
           <Routes>
+            {/* Public routes */}
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+
+            {/* Protected routes */}
             <Route
               path="/*"
               element={

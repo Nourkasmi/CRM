@@ -1,10 +1,11 @@
 import axios from 'axios';
 import { AuthResponse, User, Project, Phase, Task, ProjectFile, FileType } from '../types';
 
-const API_BASE_URL = 'http://localhost:5000/api'; // Adjust this to your Flask backend URL
+const API_BASE_URL = 'http://localhost:5000/api'; // Flask backend
 
 const api = axios.create({
   baseURL: API_BASE_URL,
+  withCredentials: true,
 });
 
 // Add JWT token to requests
@@ -29,12 +30,14 @@ api.interceptors.response.use(
   }
 );
 
+// ------------------
 // Auth endpoints
+// ------------------
 export const authAPI = {
-  login: (email: string, password: string) => 
+  login: (email: string, password: string) =>
     api.post<AuthResponse>('/auth/login', { email, password }),
-  register: (data: { email: string; username: string; password: string }) =>
-    api.post<AuthResponse>('/auth/register', data),
+  register: (data: { email: string; name: string; password: string }) =>
+    api.post<AuthResponse>('/auth/register', data), // ✅ use name
   forgotPassword: (email: string) =>
     api.post('/auth/forgot-password', { email }),
   resetPassword: (token: string, password: string) =>
@@ -42,64 +45,76 @@ export const authAPI = {
   logout: () => api.post('/auth/logout'),
 };
 
+// ------------------
 // User endpoints
+// ------------------
 export const userAPI = {
-  getAll: () => api.get<User[]>('/users'),
-  getProfile: () => api.get<User>('/users/profile'),
-  updateProfile: (data: Partial<User>) => api.put<User>('/users/profile', data),
+  getAll: () => api.get<User[]>('/users/'),
+  getProfile: () => api.get<User>('/users/me'),
+  updateProfile: (data: Partial<User>) => api.put<User>('/users/me', data),
   changePassword: (oldPassword: string, newPassword: string) =>
-    api.post('/users/change-password', { old_password: oldPassword, new_password: newPassword }),
-  validateUser: (userId: number) => api.post(`/users/${userId}/validate`),
-  assignRole: (userId: number, role: string) => api.post(`/users/${userId}/assign-role`, { role }),
-  deleteUser: (userId: number) => api.delete(`/users/${userId}`),
+    api.put('/users/me/reset-password', { old_password: oldPassword, new_password: newPassword }),
+  validateUser: (userId: string) => api.put(`/users/${userId}/role`),
+  assignRole: (userId: string, role: string) => api.put(`/users/${userId}/role`, { role }),
+  deleteUser: (userId: string) => api.delete(`/users/${userId}`),
 };
 
+// ------------------
 // Project endpoints
+// ------------------
 export const projectAPI = {
-  getAll: () => api.get<Project[]>('/projects'),
-  getById: (id: number) => api.get<Project>(`/projects/${id}`),
-  create: (data: Partial<Project>) => api.post<Project>('/projects', data),
-  update: (id: number, data: Partial<Project>) => api.put<Project>(`/projects/${id}`, data),
-  delete: (id: number) => api.delete(`/projects/${id}`),
-  archive: (id: number) => api.post(`/projects/${id}/archive`),
+  getAll: () => api.get<Project[]>('/projects/'),
+  getById: (id: string) => api.get<Project>(`/projects/${id}`),
+  create: (data: Partial<Project>) => api.post<Project>('/projects/', data),
+  update: (id: string, data: Partial<Project>) => api.put<Project>(`/projects/${id}`, data),
+  delete: (id: string) => api.delete(`/projects/${id}`),
+  archive: (id: string) => api.post(`/projects/${id}/archive`),
 };
 
+// ------------------
 // Phase endpoints
+// ------------------
 export const phaseAPI = {
-  getByProject: (projectId: number) => api.get<Phase[]>(`/projects/${projectId}/phases`),
+  getByProject: (projectId: string) => api.get<Phase[]>(`/projects/${projectId}/phases`),
   create: (data: Partial<Phase>) => api.post<Phase>('/phases', data),
-  update: (id: number, data: Partial<Phase>) => api.put<Phase>(`/phases/${id}`, data),
-  delete: (id: number) => api.delete(`/phases/${id}`),
+  update: (id: string, data: Partial<Phase>) => api.put<Phase>(`/phases/${id}`, data),
+  delete: (id: string) => api.delete(`/phases/${id}`),
 };
 
+// ------------------
 // Task endpoints
+// ------------------
 export const taskAPI = {
-  getByProject: (projectId: number) => api.get<Task[]>(`/projects/${projectId}/tasks`),
+  getByProject: (projectId: string) => api.get<Task[]>(`/projects/${projectId}/tasks`),
   create: (data: Partial<Task>) => api.post<Task>('/tasks', data),
-  update: (id: number, data: Partial<Task>) => api.put<Task>(`/tasks/${id}`, data),
-  delete: (id: number) => api.delete(`/tasks/${id}`),
-  updateStatus: (id: number, status: string) => api.patch(`/tasks/${id}/status`, { status }),
+  update: (id: string, data: Partial<Task>) => api.put<Task>(`/tasks/${id}`, data),
+  delete: (id: string) => api.delete(`/tasks/${id}`),
+  updateStatus: (id: string, status: string) => api.patch(`/tasks/${id}/status`, { status }),
 };
 
+// ------------------
 // File endpoints
+// ------------------
 export const fileAPI = {
-  getByProject: (projectId: number) => api.get<ProjectFile[]>(`/projects/${projectId}/files`),
-  upload: (projectId: number, file: File) => {
+  getByProject: (projectId: string) => api.get<ProjectFile[]>(`/projects/${projectId}/files`),
+  upload: (projectId: string, file: File) => {
     const formData = new FormData();
     formData.append('file', file);
     return api.post<ProjectFile>(`/projects/${projectId}/files`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
   },
-  download: (id: number) => api.get(`/files/${id}/download`, { responseType: 'blob' }),
-  archive: (id: number) => api.post(`/files/${id}/archive`),
-  delete: (id: number) => api.delete(`/files/${id}`),
+  download: (id: string) => api.get(`/files/${id}/download`, { responseType: 'blob' }),
+  archive: (id: string) => api.post(`/files/${id}/archive`),
+  delete: (id: string) => api.delete(`/files/${id}`),
 };
 
+// ------------------
 // File type endpoints
+// ------------------
 export const fileTypeAPI = {
-  getAll: () => api.get<FileType[]>('/file-types'),
-  create: (data: Partial<FileType>) => api.post<FileType>('/file-types', data),
-  update: (id: number, data: Partial<FileType>) => api.put<FileType>(`/file-types/${id}`, data),
-  delete: (id: number) => api.delete(`/file-types/${id}`),
+  getAll: () => api.get<FileType[]>('/filetypes'),
+  create: (data: Partial<FileType>) => api.post<FileType>('/filetypes', data),
+  update: (id: string, data: Partial<FileType>) => api.put<FileType>(`/filetypes/${id}`, data),
+  delete: (id: string) => api.delete(`/filetypes/${id}`),
 };

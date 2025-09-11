@@ -18,8 +18,11 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { Project, Task } from '../../types';
 import { projectAPI, taskAPI } from '../../services/api';
+import { useAuth } from '../../contexts/AuthContext';  // 👈 added
 
 export const ManagerDashboard: React.FC = () => {
+  const { user } = useAuth();   // 👈 get logged-in user
+
   const [projects, setProjects] = useState<Project[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -65,8 +68,9 @@ export const ManagerDashboard: React.FC = () => {
 
   return (
     <Box>
+      {/* ✅ Show manager’s name instead of hardcoded text */}
       <Typography variant="h4" gutterBottom>
-        Manager Dashboard
+        {user?.name ? `${user.name}'s Manager Dashboard` : 'Manager Dashboard'}
       </Typography>
 
       <Grid container spacing={3} sx={{ mb: 3 }}>
