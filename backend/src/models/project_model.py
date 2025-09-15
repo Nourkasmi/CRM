@@ -19,30 +19,38 @@ class Project(Document):
         try:
             from src.models.phase_model import Phase  # éviter circular import
 
+            # ✅ Safe deref for created_by
+            created_by_data = None
+            if self.created_by and getattr(self.created_by, "id", None):
+                created_by_data = {
+                    "id": str(self.created_by.id),
+                    "email": getattr(self.created_by, "email", None)
+                }
+
+            # ✅ Safe deref for managers
+            safe_managers = []
+            for m in (self.managers or []):
+                if m and getattr(m, "id", None):
+                    safe_managers.append({"id": str(m.id), "email": getattr(m, "email", None)})
+
+            # ✅ Safe deref for members
+            safe_members = []
+            for u in (self.members or []):
+                if u and getattr(u, "id", None):
+                    safe_members.append({"id": str(u.id), "email": getattr(u, "email", None)})
+
             return {
                 "id": str(self.id),
                 "name": self.name,
                 "description": self.description or "",
                 "deadline": self.deadline.isoformat() if self.deadline else None,
-                "created_by": {
-                    "id": str(self.created_by.id),
-                    "email": getattr(self.created_by, "email", None)
-                } if self.created_by else None,
+                "created_by": created_by_data,
                 "created_at": self.created_at.isoformat() if self.created_at else None,
                 "updated_at": self.updated_at.isoformat() if self.updated_at else None,
                 "is_archived": self.is_archived,
-                "managers": [
-                    {"id": str(m.id), "email": getattr(m, "email", None)}
-                    for m in (self.managers or []) if m
-                ],
-                "members": [
-                    {"id": str(u.id), "email": getattr(u, "email", None)}
-                    for u in (self.members or []) if u
-                ],
-                "assigned_to": [
-                    {"id": str(u.id), "email": getattr(u, "email", None)}
-                    for u in ((self.managers or []) + (self.members or [])) if u
-                ],
+                "managers": safe_managers,
+                "members": safe_members,
+                "assigned_to": safe_managers + safe_members,
                 "phases": [p.to_dict() for p in Phase.objects(project=self)]
             }
         except Exception as e:

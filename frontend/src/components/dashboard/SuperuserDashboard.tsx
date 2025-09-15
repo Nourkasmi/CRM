@@ -5,7 +5,6 @@ import {
   CardContent,
   Typography,
   Box,
-  Button,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -14,6 +13,8 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
+  Button,
+  Snackbar,
   Alert,
 } from '@mui/material';
 import { DataGrid, GridColDef, GridActionsCellItem } from '@mui/x-data-grid';
@@ -23,7 +24,7 @@ import {
   CheckCircle,
   Delete,
   Edit,
-  PersonAdd
+  PersonAdd,
 } from '@mui/icons-material';
 import { User } from '../../types';
 import { userAPI, projectAPI } from '../../services/api';
@@ -37,6 +38,13 @@ export const SuperuserDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  // snackbar state
+  const [snackbar, setSnackbar] = useState<{
+    open: boolean;
+    message: string;
+    severity: 'success' | 'error';
+  }>({ open: false, message: '', severity: 'success' });
+
   useEffect(() => {
     loadData();
   }, []);
@@ -45,16 +53,15 @@ export const SuperuserDashboard: React.FC = () => {
     try {
       const [usersResponse, projectsResponse] = await Promise.all([
         userAPI.getAll(),
-        projectAPI.getAll()
+        projectAPI.getAll(),
       ]);
 
-      // Map backend fields → frontend DataGrid format
       const mappedUsers = usersResponse.data.map((u: any) => ({
         id: u.id,
-        username: u.name,          // backend has "name"
+        username: u.name,
         email: u.email,
         role: u.role,
-        is_validated: u.is_active  // backend uses is_active
+        is_validated: u.is_active,
       }));
 
       setUsers(mappedUsers);
@@ -69,24 +76,37 @@ export const SuperuserDashboard: React.FC = () => {
 
   const handleValidateUser = async (userId: string) => {
     try {
-      await userAPI.validateUser(userId);
+      const res = await userAPI.validateUser(userId);
+      setSnackbar({ open: true, message: res.data.msg, severity: 'success' });
       await loadData();
-    } catch (err) {
-      setError('Failed to validate user');
+    } catch (err: any) {
+      setSnackbar({
+        open: true,
+        message: err.response?.data?.msg || 'Failed to validate user',
+        severity: 'error',
+      });
     }
   };
 
   const handleAssignRole = async () => {
     if (!selectedUser) return;
-
     try {
       await userAPI.assignRole(selectedUser.id, newRole);
+      setSnackbar({
+        open: true,
+        message: `Role updated to ${newRole}`,
+        severity: 'success',
+      });
       setRoleDialogOpen(false);
       setSelectedUser(null);
       setNewRole('');
       await loadData();
     } catch (err) {
-      setError('Failed to assign role');
+      setSnackbar({
+        open: true,
+        message: 'Failed to assign role',
+        severity: 'error',
+      });
     }
   };
 
@@ -94,9 +114,18 @@ export const SuperuserDashboard: React.FC = () => {
     if (window.confirm('Are you sure you want to delete this user?')) {
       try {
         await userAPI.deleteUser(userId);
+        setSnackbar({
+          open: true,
+          message: 'User deleted successfully',
+          severity: 'success',
+        });
         await loadData();
       } catch (err) {
-        setError('Failed to delete user');
+        setSnackbar({
+          open: true,
+          message: 'Failed to delete user',
+          severity: 'error',
+        });
       }
     }
   };
@@ -110,7 +139,7 @@ export const SuperuserDashboard: React.FC = () => {
       field: 'is_validated',
       headerName: 'Validated',
       width: 120,
-      renderCell: (params) => (params.value ? '✓' : '✗')
+      renderCell: (params) => (params.value ? '✓' : '✗'),
     },
     {
       field: 'actions',
@@ -145,8 +174,8 @@ export const SuperuserDashboard: React.FC = () => {
   const stats = {
     totalUsers: users.length,
     totalProjects: projects.length,
-    validatedUsers: users.filter(u => u.is_validated).length,
-    pendingUsers: users.filter(u => !u.is_validated).length,
+    validatedUsers: users.filter((u) => u.is_validated).length,
+    pendingUsers: users.filter((u) => !u.is_validated).length,
   };
 
   return (
@@ -254,6 +283,22 @@ export const SuperuserDashboard: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Snackbar for messages */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={3000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

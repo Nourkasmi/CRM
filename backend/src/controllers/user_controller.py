@@ -133,7 +133,15 @@ def validate_user(user_id):
         set__is_active=True,
         set__updated_at=datetime.utcnow()
     )
-    return jsonify({"msg": f"User {user_id} validated successfully"}), 200
+
+    # reload user to return fresh data
+    user.reload()
+
+    return jsonify({
+        "msg": f"User {user.email} validated successfully",
+        "user": user.to_dict()
+    }), 200
+
 
 
 # -----------------------

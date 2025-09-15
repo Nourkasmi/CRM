@@ -15,6 +15,10 @@ import { ProjectList } from './components/projects/ProjectList';
 import { ProjectDetail } from './components/projects/ProjectDetail';
 import { useAuth } from './contexts/AuthContext';
 
+// ✅ Forgot & Reset Password components
+import { ForgotPassword } from './components/auth/ForgotPassword';
+import { ResetPassword } from './components/auth/ResetPassword';
+
 const DashboardRouter: React.FC = () => {
   const { user } = useAuth();
 
@@ -38,6 +42,11 @@ function App() {
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+
+            {/* ✅ Forgot & Reset Password Routes */}
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+
             <Route
               path="/*"
               element={

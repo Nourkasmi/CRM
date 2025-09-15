@@ -28,8 +28,12 @@ def verify_reset_token(token):
     """
     try:
         decoded = decode_token(token)
-        if decoded["sub"].get("purpose") != "reset_password":
+        identity = decoded.get("sub", {})
+        if not isinstance(identity, dict):
             return None
-        return decoded["sub"].get("id")
+        if identity.get("purpose") != "reset_password":
+            return None
+        return identity.get("id")
     except Exception:
         return None
+

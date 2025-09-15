@@ -1,6 +1,12 @@
 from flask_mail import Message
 from src.config.mail import mail
 from src.models.user_model import User
+import os
+
+# -----------------------------
+# Frontend base URL (DEV/PROD)
+# -----------------------------
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")  # default for dev
 
 def send_validation_email(user_dict):
     """
@@ -19,29 +25,29 @@ def send_validation_email(user_dict):
     recipients = [a.email for a in admins]
 
     if not recipients:
-        print(" No admins found to notify.")
+        print("❌ No admins found to notify.")
         return
 
-    #  Direct backend endpoint (JWT still required)
+    # Validation stays backend-only (JWT required)
     validation_link = f"http://localhost:5000/auth/validate/{user_dict['id']}"
 
-    subject = " New Account Pending Validation"
+    subject = "🆕 New Account Pending Validation"
     body = f"""
     A new {role} has registered and requires validation:
 
     Name: {user_dict['name']}
     Email: {user_dict['email']}
 
-     To validate, send a POST request to:
+    To validate, send a POST request to:
     {validation_link}
 
-    ( You must be logged in as manager/superuser and include your JWT token)
+    (You must be logged in as manager/superuser and include your JWT token)
     """
 
     msg = Message(subject=subject, recipients=recipients, body=body)
     mail.send(msg)
-    print(f" Validation email sent to {recipients}")
-    print(" Validation link:", validation_link)
+    print(f"✅ Validation email sent to {recipients}")
+    print("🔗 Validation link:", validation_link)
 
 
 def send_password_reset_email(user_dict, token):
@@ -49,13 +55,14 @@ def send_password_reset_email(user_dict, token):
     Send password reset email with a link containing the token.
     user_dict should come from user.to_dict()
     """
-    reset_link = f"http://localhost:3000/reset-password?token={token}"  # adjust once frontend exists
+    reset_link = f"{FRONTEND_URL}/reset-password?token={token}"
 
     subject = "🔑 Reset Your Password"
     body = f"""
     Hello {user_dict['name']},
 
     You requested a password reset. Please click the link below to set a new password:
+
     {reset_link}
 
     This link will expire in 15 minutes. If you did not request this, please ignore this email.
@@ -64,5 +71,5 @@ def send_password_reset_email(user_dict, token):
     msg = Message(subject=subject, recipients=[user_dict["email"]], body=body)
     mail.send(msg)
 
-    print(f" Reset email sent to {user_dict['email']}")
-    print(" Reset link:", reset_link)
+    print(f"✅ Reset email sent to {user_dict['email']}")
+    print("🔗 Reset link:", reset_link)

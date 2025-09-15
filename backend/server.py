@@ -1,4 +1,4 @@
-from flask import Flask, jsonify
+from flask import Flask
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from datetime import timedelta
@@ -12,9 +12,10 @@ from src.routes.file_routes import file_bp
 from src.routes.filetype_routes import filetype_bp
 from src.middlewares.error_handlers import register_error_handlers
 from src.config.mail import init_mail
-import traceback
+from flasgger import Swagger
 
 app = Flask(__name__)
+swagger = Swagger(app)
 
 # ✅ Strict CORS configuration for frontend (Vite on 5173)
 CORS(
@@ -34,15 +35,6 @@ app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=4)
 app.config["JWT_TOKEN_LOCATION"] = ["headers"]
 
 jwt = JWTManager(app)
-
-# -------------------------
-# Global catch-all error handler (for debugging 500)
-# -------------------------
-@app.errorhandler(Exception)
-def handle_exception(e):
-    print("🔥 SERVER ERROR:", str(e))
-    traceback.print_exc()   # affiche la stack complète
-    return jsonify({"msg": f"Internal error: {str(e)}"}), 500
 
 # -------------------------
 # Init DB & Mail

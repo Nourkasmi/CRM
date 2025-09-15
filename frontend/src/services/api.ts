@@ -67,7 +67,8 @@ export const userAPI = {
       new_password: newPassword,
     }),
 
-  validateUser: (userId: string) => api.post(`/auth/validate/${userId}`),
+  // ✅ Fixed: correct backend route + method
+  validateUser: (userId: string) => api.put(`/users/${userId}/validate`),
 
   assignRole: (userId: string, role: string) =>
     api.put(`/users/${userId}/role`, { role }),
