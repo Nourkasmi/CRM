@@ -93,24 +93,68 @@ def update_profile(data, current_user):
     return jsonify({"msg": "Profile updated successfully"}), 200
 
 
-# -----------------------
-# Change role
-# -----------------------
 def update_role(user_id, new_role):
+    print(f"🔍 DEBUG: update_role called with user_id={user_id}, new_role={new_role}")
+    print(f"🔍 DEBUG: new_role type: {type(new_role)}")
+    
     if new_role not in ["user", "manager", "superuser"]:
+        print(f"❌ Invalid role: {new_role}")
         return jsonify({"msg": "Invalid role"}), 400
 
     try:
         user_obj_id = ObjectId(user_id)
-    except Exception:
+        print(f"✅ Valid ObjectId created: {user_obj_id}")
+    except Exception as e:
+        print(f"❌ Invalid ObjectId: {str(e)}")
         return jsonify({"msg": "Invalid user ID"}), 400
 
+    # Find user
     user = User.objects(id=user_obj_id).first()
     if not user:
+        print(f"❌ User not found with ID: {user_obj_id}")
         return jsonify({"msg": "User not found"}), 404
 
-    user.update(set__role=new_role, set__updated_at=datetime.utcnow())
-    return jsonify({"msg": f"Role updated to {new_role}"}), 200
+    print(f"✅ User found: {user.email}, current role: {user.role}")
+    
+    # Check if role is actually different
+    if user.role == new_role:
+        print(f"⚠️ User already has role: {new_role}")
+        return jsonify({"msg": f"User already has role: {new_role}"}), 200
+
+    # Attempt to update
+    try:
+        print(f"🔄 Attempting to update role from '{user.role}' to '{new_role}'")
+        
+        # Try direct assignment first
+        user.role = new_role
+        user.updated_at = datetime.utcnow()
+        user.save()
+        
+        print(f"📝 User saved with direct assignment")
+        
+        # Reload user to verify change
+        user.reload()
+        print(f"🔄 After reload - User role: {user.role}")
+        
+        # Double-check by querying database again
+        fresh_user = User.objects(id=user_obj_id).first()
+        print(f"🔍 Fresh query - User role: {fresh_user.role}")
+        
+        if fresh_user.role == new_role:
+            print(f"✅ Role successfully updated to: {new_role}")
+            return jsonify({
+                "msg": f"Role updated to {new_role}",
+                "user": fresh_user.to_dict()
+            }), 200
+        else:
+            print(f"❌ Role update failed. Expected: {new_role}, Got: {fresh_user.role}")
+            return jsonify({"msg": "Role update failed"}), 500
+            
+    except Exception as e:
+        print(f"❌ Update failed with exception: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"msg": f"Update failed: {str(e)}"}), 500
 
 
 # -----------------------

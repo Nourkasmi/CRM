@@ -27,7 +27,7 @@ def create_task(data, current_user):
     description = data.get("description", "")
     phase_id = data.get("phase_id")
     deadline_str = data.get("deadline")
-    assigned_user_id = data.get("assigned_user_id")  # 👈 required for manager/superuser
+    assigned_user_id = data.get("assigned_user_id")
 
     if not title or not phase_id:
         return jsonify({"msg": "Task title and phase_id are required"}), 400
@@ -36,7 +36,6 @@ def create_task(data, current_user):
     if not phase:
         return jsonify({"msg": "Phase not found"}), 404
 
-    # Managers can only create tasks in projects they manage
     project = phase.project
     if current_user.get("role") == "manager" and \
        str(current_user["id"]) not in [str(m.id) for m in project.managers] and \
@@ -51,20 +50,12 @@ def create_task(data, current_user):
     if deadline_str and deadline is None:
         return jsonify({"msg": f"Invalid date format: {deadline_str}"}), 400
 
-    # -------------------------------
-    # Assignment rules
-    # -------------------------------
     assigned_to = []
-
     if current_user.get("role") == "user":
-        # Auto-assign task to the user who created it
         assigned_to = [creator]
-
-        # 👇 Auto-add creator to project members if not already
         if creator not in project.members:
             project.update(push__members=creator, set__updated_at=datetime.utcnow())
-
-    else:  # manager or superuser
+    else:
         if not assigned_user_id:
             return jsonify({
                 "msg": "Managers and superusers must assign the task to a user. "
@@ -76,8 +67,6 @@ def create_task(data, current_user):
             return jsonify({"msg": "Assigned user not found or inactive"}), 404
 
         assigned_to = [assigned_user]
-
-        # 👇 Auto-add assigned user to project members if not already
         if assigned_user not in project.members:
             project.update(push__members=assigned_user, set__updated_at=datetime.utcnow())
 
@@ -94,7 +83,6 @@ def create_task(data, current_user):
         "msg": "Task created successfully",
         "task": task.to_dict()
     }), 201
-
 
 
 # -------------------------------
@@ -121,10 +109,8 @@ def assign_task(task_id, user_id, current_user):
     if user in task.assigned_to:
         return jsonify({"msg": "User already assigned to this task"}), 400
 
-    # 👇 Assign user to task
     task.update(push__assigned_to=user)
 
-    # 👇 Auto-add user to project members if not already
     if user not in project.members:
         project.update(push__members=user, set__updated_at=datetime.utcnow())
 
@@ -140,6 +126,23 @@ def get_tasks(phase_id, current_user):
         return jsonify({"msg": "Phase not found"}), 404
 
     tasks = Task.objects(phase=phase)
+    return jsonify([t.to_dict() for t in tasks]), 200
+
+
+# -------------------------------
+# ✅ Get all tasks for a project
+# -------------------------------
+def get_tasks_by_project(project_id, current_user):
+    from src.models.project_model import Project
+
+    project = Project.objects(id=project_id).first()
+    if not project:
+        return jsonify({"msg": "Project not found"}), 404
+
+    phases = project.phases
+    phase_ids = [p.id for p in phases]
+
+    tasks = Task.objects(phase__in=phase_ids)
     return jsonify([t.to_dict() for t in tasks]), 200
 
 

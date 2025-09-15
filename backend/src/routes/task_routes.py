@@ -6,7 +6,7 @@ from src.controllers import task_controller as controller
 task_bp = Blueprint("tasks", __name__)
 
 # -----------------------
-# Create a task (superuser or manager)
+# Create a task
 # -----------------------
 @task_bp.route("/", methods=["POST"])
 @jwt_required()
@@ -18,7 +18,7 @@ def create_task():
 
 
 # -----------------------
-# Assign a task to user(s) (superuser or manager)
+# Assign a task to user(s)
 # -----------------------
 @task_bp.route("/<task_id>/assign/<user_id>", methods=["POST"])
 @jwt_required()
@@ -29,7 +29,7 @@ def assign_task(task_id, user_id):
 
 
 # -----------------------
-# Get all tasks for a phase (instead of project)
+# Get all tasks for a phase
 # -----------------------
 @task_bp.route("/phase/<phase_id>", methods=["GET"])
 @jwt_required()
@@ -39,7 +39,17 @@ def get_tasks(phase_id):
 
 
 # -----------------------
-# Update a task (superuser or manager if owns/assigned)
+# ✅ Get all tasks for a project
+# -----------------------
+@task_bp.route("/project/<project_id>", methods=["GET"])
+@jwt_required()
+def get_tasks_by_project(project_id):
+    current_user = get_jwt_identity()
+    return controller.get_tasks_by_project(project_id, current_user)
+
+
+# -----------------------
+# Update a task
 # -----------------------
 @task_bp.route("/<task_id>", methods=["PUT"])
 @jwt_required()
@@ -51,7 +61,7 @@ def update_task(task_id):
 
 
 # -----------------------
-# Delete a task (superuser or manager if owns/assigned)
+# Delete a task
 # -----------------------
 @task_bp.route("/<task_id>", methods=["DELETE"])
 @jwt_required()
