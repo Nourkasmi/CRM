@@ -50,11 +50,14 @@ export const SuperuserDashboard: React.FC = () => {
   }, []);
 
   const loadData = async () => {
+    console.log('🔄 Loading user data...');
     try {
       const [usersResponse, projectsResponse] = await Promise.all([
         userAPI.getAll(),
         projectAPI.getAll(),
       ]);
+
+      console.log('📊 Raw users data:', usersResponse.data);
 
       const mappedUsers = usersResponse.data.map((u: any) => ({
         id: u.id,
@@ -64,10 +67,11 @@ export const SuperuserDashboard: React.FC = () => {
         is_validated: u.is_active,
       }));
 
+      console.log('📊 Mapped users:', mappedUsers);
       setUsers(mappedUsers);
       setProjects(projectsResponse.data);
     } catch (err) {
-      console.error(err);
+      console.error('❌ Failed to load data:', err);
       setError('Failed to load data');
     } finally {
       setLoading(false);
@@ -78,6 +82,7 @@ export const SuperuserDashboard: React.FC = () => {
     try {
       const res = await userAPI.validateUser(userId);
       setSnackbar({ open: true, message: res.data.msg, severity: 'success' });
+      // ✅ Refresh data after validation
       await loadData();
     } catch (err: any) {
       setSnackbar({
@@ -90,21 +95,33 @@ export const SuperuserDashboard: React.FC = () => {
 
   const handleAssignRole = async () => {
     if (!selectedUser) return;
+    
+    console.log(`🔄 Assigning role "${newRole}" to user ${selectedUser.id}`);
+    
     try {
-      await userAPI.assignRole(selectedUser.id, newRole);
+      const response = await userAPI.assignRole(selectedUser.id, newRole);
+      console.log('✅ Role assignment response:', response.data);
+      
       setSnackbar({
         open: true,
-        message: `Role updated to ${newRole}`,
+        message: response.data.msg || `Role updated to ${newRole}`,
         severity: 'success',
       });
+      
+      // ✅ Close dialog first
       setRoleDialogOpen(false);
       setSelectedUser(null);
       setNewRole('');
+      
+      // ✅ Force reload data to show updated roles
+      console.log('🔄 Reloading data after role assignment...');
       await loadData();
-    } catch (err) {
+      
+    } catch (err: any) {
+      console.error('❌ Role assignment failed:', err);
       setSnackbar({
         open: true,
-        message: 'Failed to assign role',
+        message: err.response?.data?.msg || 'Failed to assign role',
         severity: 'error',
       });
     }
@@ -119,6 +136,7 @@ export const SuperuserDashboard: React.FC = () => {
           message: 'User deleted successfully',
           severity: 'success',
         });
+        // ✅ Refresh data after deletion
         await loadData();
       } catch (err) {
         setSnackbar({
@@ -157,6 +175,7 @@ export const SuperuserDashboard: React.FC = () => {
           icon={<Edit />}
           label="Assign Role"
           onClick={() => {
+            console.log('🔧 Opening role dialog for user:', params.row);
             setSelectedUser(params.row);
             setNewRole(params.row.role);
             setRoleDialogOpen(true);
@@ -263,6 +282,16 @@ export const SuperuserDashboard: React.FC = () => {
       <Dialog open={roleDialogOpen} onClose={() => setRoleDialogOpen(false)}>
         <DialogTitle>Assign Role</DialogTitle>
         <DialogContent>
+          {selectedUser && (
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" color="text.secondary">
+                User: {selectedUser.username} ({selectedUser.email})
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Current Role: {selectedUser.role}
+              </Typography>
+            </Box>
+          )}
           <FormControl fullWidth sx={{ mt: 2 }}>
             <InputLabel>Role</InputLabel>
             <Select
@@ -278,7 +307,11 @@ export const SuperuserDashboard: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setRoleDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleAssignRole} variant="contained">
+          <Button 
+            onClick={handleAssignRole} 
+            variant="contained"
+            disabled={!newRole || newRole === selectedUser?.role}
+          >
             Assign Role
           </Button>
         </DialogActions>
