@@ -19,6 +19,9 @@ import { useAuth } from './contexts/AuthContext';
 import { ForgotPassword } from './components/auth/ForgotPassword';
 import { ResetPassword } from './components/auth/ResetPassword';
 
+// ✅ Task board
+import { TaskBoard } from './components/tasks/TaskBoard';
+
 const DashboardRouter: React.FC = () => {
   const { user } = useAuth();
 
@@ -56,6 +59,14 @@ function App() {
                       <Route path="/dashboard" element={<DashboardRouter />} />
                       <Route path="/projects" element={<ProjectList />} />
                       <Route path="/projects/:id" element={<ProjectDetail />} />
+
+                      {/* 🔹 Added missing routes */}
+                      <Route path="/users" element={<SuperuserDashboard />} />
+                      <Route path="/tasks" element={<TaskBoard projectId={1} />} />
+                      {/* NOTE: projectId={1} is a placeholder.
+                          Later you can make a global AllTasksPage 
+                          or handle dynamic project IDs. */}
+
                       <Route path="/" element={<Navigate to="/dashboard" />} />
                     </Routes>
                   </Layout>
