@@ -1,36 +1,36 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { ThemeProvider } from '@mui/material/styles';
-import { CssBaseline } from '@mui/material';
-import { theme } from './theme';
-import { AuthProvider } from './contexts/AuthContext';
-import { Layout } from './components/layout/Layout';
-import { ProtectedRoute } from './components/common/ProtectedRoute';
-import { Login } from './components/auth/Login';
-import { Register } from './components/auth/Register';
-import { SuperuserDashboard } from './components/dashboard/SuperuserDashboard';
-import { ManagerDashboard } from './components/dashboard/ManagerDashboard';
-import { UserDashboard } from './components/dashboard/UserDashboard';
-import { ProjectList } from './components/projects/ProjectList';
-import { ProjectDetail } from './components/projects/ProjectDetail';
-import { useAuth } from './contexts/AuthContext';
+import React from "react";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { ThemeProvider } from "@mui/material/styles";
+import { CssBaseline } from "@mui/material";
+import { theme } from "./theme";
+import { AuthProvider } from "./contexts/AuthContext";
+import { Layout } from "./components/layout/Layout";
+import { ProtectedRoute } from "./components/common/ProtectedRoute";
+import { Login } from "./components/auth/Login";
+import { Register } from "./components/auth/Register";
+import { SuperuserDashboard } from "./components/dashboard/SuperuserDashboard";
+import { ManagerDashboard } from "./components/dashboard/ManagerDashboard";
+import { UserDashboard } from "./components/dashboard/UserDashboard";
+import { ProjectDetail } from "./components/projects/ProjectDetail";
+import { useAuth } from "./contexts/AuthContext";
+import { ProjectPhaseTaskSplit } from "./components/projects/ProjectPhaseTaskSplit";
 
 // ✅ Forgot & Reset Password components
-import { ForgotPassword } from './components/auth/ForgotPassword';
-import { ResetPassword } from './components/auth/ResetPassword';
+import { ForgotPassword } from "./components/auth/ForgotPassword";
+import { ResetPassword } from "./components/auth/ResetPassword";
 
 // ✅ Task board
-import { TaskBoard } from './components/tasks/TaskBoard';
+import { TaskBoard } from "./components/tasks/TaskBoard";
 
 const DashboardRouter: React.FC = () => {
   const { user } = useAuth();
 
   switch (user?.role) {
-    case 'superuser':
+    case "superuser":
       return <SuperuserDashboard />;
-    case 'manager':
+    case "manager":
       return <ManagerDashboard />;
-    case 'user':
+    case "user":
     default:
       return <UserDashboard />;
   }
@@ -57,10 +57,11 @@ function App() {
                   <Layout>
                     <Routes>
                       <Route path="/dashboard" element={<DashboardRouter />} />
-                      <Route path="/projects" element={<ProjectList />} />
+
+                      {/* 🔹 Replace ProjectList with Split View */}
+                      <Route path="/projects" element={<ProjectPhaseTaskSplit />} />
                       <Route path="/projects/:id" element={<ProjectDetail />} />
 
-                      {/* 🔹 Added missing routes */}
                       <Route path="/users" element={<SuperuserDashboard />} />
                       <Route path="/tasks" element={<TaskBoard projectId={1} />} />
                       {/* NOTE: projectId={1} is a placeholder.
