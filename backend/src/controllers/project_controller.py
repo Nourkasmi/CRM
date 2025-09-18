@@ -15,10 +15,11 @@ def create_project(data, current_user):
 
     name = data.get("name")
     description = data.get("description", "")
-    deadline = data.get("deadline")  # optional
+    deadline = data.get("deadline")
 
-    if not name:
-        return jsonify({"msg": "Project name is required"}), 400
+    # 🔹 Deadline is now mandatory
+    if not name or not deadline:
+        return jsonify({"msg": "Project name and deadline are required"}), 400
 
     try:
         creator = User.objects(id=ObjectId(current_user["id"])).first()
@@ -35,22 +36,20 @@ def create_project(data, current_user):
         deadline=deadline
     )
 
-    # ✅ If the creator is a manager, auto-assign them
     if current_user.get("role") == "manager":
         project.managers = [creator]
 
     project.save()
 
-    # ✅ Create default phases
+    # ✅ Default phases also inherit the project deadline if none is provided
     default_phases = ["Planning", "Execution", "Closure"]
     for pname in default_phases:
-        Phase(name=pname, project=project).save()
+        Phase(name=pname, project=project, deadline=deadline).save()
 
     return jsonify({
         "msg": "Project created successfully with default phases",
         "project": project.to_dict()
     }), 201
-
 
 # -------------------------------
 # Assign a manager to project (superuser only)

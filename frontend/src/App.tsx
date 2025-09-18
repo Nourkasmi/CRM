@@ -14,6 +14,8 @@ import { UserDashboard } from "./components/dashboard/UserDashboard";
 import { ProjectDetail } from "./components/projects/ProjectDetail";
 import { useAuth } from "./contexts/AuthContext";
 import { ProjectPhaseTaskSplit } from "./components/projects/ProjectPhaseTaskSplit";
+import { UserList } from "./components/users/UserList";
+
 
 // ✅ Forgot & Reset Password components
 import { ForgotPassword } from "./components/auth/ForgotPassword";
@@ -62,7 +64,7 @@ function App() {
                       <Route path="/projects" element={<ProjectPhaseTaskSplit />} />
                       <Route path="/projects/:id" element={<ProjectDetail />} />
 
-                      <Route path="/users" element={<SuperuserDashboard />} />
+                      <Route path="/users" element={<UserList />} />
                       <Route path="/tasks" element={<TaskBoard projectId={1} />} />
                       {/* NOTE: projectId={1} is a placeholder.
                           Later you can make a global AllTasksPage 

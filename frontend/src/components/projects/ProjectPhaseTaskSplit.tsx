@@ -104,20 +104,26 @@ export const ProjectPhaseTaskSplit: React.FC = () => {
 
     try {
       if (dialogType === "project") {
-        await projectAPI.create({ name: newName, description: newDesc });
+        await projectAPI.create({
+          name: newName,
+          description: newDesc,
+          deadline: newDeadline,
+        });
         fetchProjects();
       }
       if (dialogType === "phase" && selectedProject) {
         await phaseAPI.create(selectedProject.id, {
           name: newName,
-          deadline: newDeadline || undefined,
+          deadline: newDeadline,
         });
         fetchPhases(selectedProject.id);
       }
       if (dialogType === "task" && selectedPhase) {
-        await taskAPI.create(selectedPhase.id, {
+        await taskAPI.create({
           title: newName,
           description: newDesc,
+          deadline: newDeadline,
+          phase_id: selectedPhase.id,
           status: "todo",
         });
         fetchTasks(selectedPhase.id);
@@ -128,6 +134,12 @@ export const ProjectPhaseTaskSplit: React.FC = () => {
       handleCloseDialog();
     }
   };
+
+  // Validation
+  const isValid =
+    !!newName.trim() &&
+    !!newDeadline &&
+    (dialogType !== "project" || !!newDesc.trim() || newDesc === ""); // project desc optional
 
   // 🔹 Reusable board column
   const BoardColumn: React.FC<{
@@ -268,7 +280,9 @@ export const ProjectPhaseTaskSplit: React.FC = () => {
                       </ListItemIcon>
                       <ListItemText
                         primary={t.title}
-                        secondary={t.status}
+                        secondary={`Status: ${t.status} | Deadline: ${
+                          t.deadline ? new Date(t.deadline).toLocaleDateString() : "N/A"
+                        }`}
                         secondaryTypographyProps={{
                           color: "textSecondary",
                           fontSize: "0.8rem",
@@ -300,6 +314,7 @@ export const ProjectPhaseTaskSplit: React.FC = () => {
             label={dialogType === "task" ? "Task Title" : "Name"}
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
+            required
           />
 
           {/* Project & Task have description */}
@@ -313,22 +328,21 @@ export const ProjectPhaseTaskSplit: React.FC = () => {
             />
           )}
 
-          {/* Phase has deadline */}
-          {dialogType === "phase" && (
-            <TextField
-              margin="normal"
-              fullWidth
-              type="date"
-              label="Deadline"
-              InputLabelProps={{ shrink: true }}
-              value={newDeadline}
-              onChange={(e) => setNewDeadline(e.target.value)}
-            />
-          )}
+          {/* Deadline required for ALL */}
+          <TextField
+            margin="normal"
+            fullWidth
+            type="date"
+            label="Deadline"
+            InputLabelProps={{ shrink: true }}
+            value={newDeadline}
+            onChange={(e) => setNewDeadline(e.target.value)}
+            required
+          />
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseDialog}>Cancel</Button>
-          <Button variant="contained" onClick={handleCreate} disabled={!newName}>
+          <Button variant="contained" onClick={handleCreate} disabled={!isValid}>
             Create
           </Button>
         </DialogActions>
