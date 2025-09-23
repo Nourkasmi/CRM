@@ -130,3 +130,24 @@ def delete_phase(phase_id, current_user):
 
     phase.delete()
     return jsonify({"msg": "Phase deleted successfully"}), 200
+
+# -------------------------------
+# ✅ Mark phase as completed
+# -------------------------------
+def complete_phase(phase_id, current_user):
+    phase = Phase.objects(id=phase_id).first()
+    if not phase:
+        return jsonify({"msg": "Phase not found"}), 404
+
+    project = phase.project
+    if current_user.get("role") not in ["superuser", "manager"]:
+        return jsonify({"msg": "Only superuser or manager can complete a phase"}), 403
+
+    # Update status
+    phase.status = "completed"
+    phase.save()
+
+    return jsonify({
+        "msg": "Phase marked as completed",
+        "phase": phase.to_dict()
+    }), 200

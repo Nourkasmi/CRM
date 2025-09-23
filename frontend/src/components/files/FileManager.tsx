@@ -1,51 +1,33 @@
 import React, { useState, useEffect } from 'react';
 import {
   Box,
-  Button,
   Card,
   CardContent,
   Typography,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Alert,
-  Chip,
-  LinearProgress,
 } from '@mui/material';
-import { DataGrid, GridColDef, GridActionsCellItem } from '@mui/x-data-grid';
-import { 
-  CloudUpload, 
-  Download, 
-  Archive, 
-  Delete, 
-  Unarchive,
-  InsertDriveFile 
-} from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { ProjectFile } from '../../types';
 import { fileAPI } from '../../services/api';
+import DataTableBasic from '../common/DataTableBasic';
 
-interface FileManagerProps {
-  projectId: number;
-}
-
-export const FileManager: React.FC<FileManagerProps> = ({ projectId }) => {
+export const FileManager: React.FC = () => {
   const [files, setFiles] = useState<ProjectFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
   const { user } = useAuth();
+
+  // Active/Archived filter state
+  const [statusFilter, setStatusFilter] = useState<'active' | 'archived'>('active');
 
   useEffect(() => {
     loadFiles();
-  }, [projectId]);
+  }, []);
 
   const loadFiles = async () => {
+    setLoading(true);
     try {
-      const response = await fileAPI.getByProject(projectId);
+      const response = await fileAPI.getAll(true); // include archived
       setFiles(response.data);
     } catch (err) {
       setError('Failed to load files');
@@ -54,35 +36,13 @@ export const FileManager: React.FC<FileManagerProps> = ({ projectId }) => {
     }
   };
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files[0]) {
-      setSelectedFile(event.target.files[0]);
-    }
-  };
-
-  const handleUpload = async () => {
-    if (!selectedFile) return;
-    
-    setUploading(true);
+  const handleDownload = async (fileId: string, filename: string) => {
     try {
-      await fileAPI.upload(projectId, selectedFile);
-      await loadFiles();
-      setUploadDialogOpen(false);
-      setSelectedFile(null);
-    } catch (err) {
-      setError('Failed to upload file');
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleDownload = async (file: ProjectFile) => {
-    try {
-      const response = await fileAPI.download(file.id);
+      const response = await fileAPI.download(fileId);
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', file.original_name);
+      link.setAttribute('download', filename || 'file');
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -91,191 +51,213 @@ export const FileManager: React.FC<FileManagerProps> = ({ projectId }) => {
     }
   };
 
-  const handleArchive = async (fileId: number) => {
+  const handleArchive = async (fileId: string, archive: boolean) => {
     try {
-      await fileAPI.archive(fileId);
+      if (archive) {
+        await fileAPI.archive(fileId);
+      } else {
+        await fileAPI.unarchive(fileId);
+      }
       await loadFiles();
     } catch (err) {
-      setError('Failed to archive file');
+      setError('Failed to update file status');
     }
-  };
-
-  const handleDelete = async (fileId: number) => {
-    if (window.confirm('Are you sure you want to delete this file?')) {
-      try {
-        await fileAPI.delete(fileId);
-        await loadFiles();
-      } catch (err) {
-        setError('Failed to delete file');
-      }
-    }
-  };
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
   const canModify = user?.role === 'superuser' || user?.role === 'manager';
 
-  const columns: GridColDef[] = [
-    { 
-      field: 'original_name', 
-      headerName: 'Name', 
-      width: 250, 
-      flex: 1,
-      renderCell: (params) => (
-        <Box display="flex" alignItems="center">
-          <InsertDriveFile sx={{ mr: 1, color: 'text.secondary' }} />
-          {params.value}
-        </Box>
-      )
-    },
-    { field: 'file_type', headerName: 'Type', width: 100 },
-    { 
-      field: 'size', 
-      headerName: 'Size', 
-      width: 100,
-      valueFormatter: (value) => formatFileSize(value)
-    },
-    { 
-      field: 'is_archived', 
-      headerName: 'Status', 
-      width: 120,
-      renderCell: (params) => (
-        <Chip 
-          label={params.value ? 'Archived' : 'Active'}
-          color={params.value ? 'default' : 'success'}
-          size="small"
-        />
-      )
-    },
-    { 
-      field: 'created_at', 
-      headerName: 'Uploaded', 
-      width: 120,
-      valueFormatter: (value) => new Date(value).toLocaleDateString()
-    },
-    {
-      field: 'actions',
-      type: 'actions',
-      headerName: 'Actions',
-      width: 150,
-      getActions: (params) => {
-        const actions = [
-          <GridActionsCellItem
-            icon={<Download />}
-            label="Download"
-            onClick={() => handleDownload(params.row)}
-          />
-        ];
-
-        if (canModify) {
-          if (params.row.is_archived) {
-            actions.push(
-              <GridActionsCellItem
-                icon={<Unarchive />}
-                label="Unarchive"
-                onClick={() => handleArchive(params.row.id)}
-              />
-            );
-          } else {
-            actions.push(
-              <GridActionsCellItem
-                icon={<Archive />}
-                label="Archive"
-                onClick={() => handleArchive(params.row.id)}
-              />
-            );
-          }
-          
-          actions.push(
-            <GridActionsCellItem
-              icon={<Delete />}
-              label="Delete"
-              onClick={() => handleDelete(params.row.id)}
-            />
-          );
+  // ✅ Prepare rows (plain HTML only)
+  const rows = files
+    .filter((f) => (statusFilter === 'active' ? !f.is_archived : f.is_archived))
+    .map((file) => [
+      `<span>📄 ${file.filename}</span>`,
+      file.filetype?.name || '—',
+      file.project || '—',
+      file.uploaded_by?.email || '—',
+      file.is_archived
+        ? '<span style="color:gray;">Archived</span>'
+        : '<span style="color:green;">Active</span>',
+      file.uploaded_at ? new Date(file.uploaded_at).toLocaleString() : '',
+      `
+        <button class="download-btn" data-id="${file.id}" data-name="${file.filename}">⬇️ Download</button>
+        ${
+          canModify
+            ? file.is_archived
+              ? `<button class="unarchive-btn" data-id="${file.id}">Unarchive</button>`
+              : `<button class="archive-btn" data-id="${file.id}">Archive</button>`
+            : ''
         }
+      `,
+    ]);
 
-        return actions;
-      },
-    },
-  ];
+  // ✅ Attach event listeners after table renders
+  useEffect(() => {
+    const handleClick = (e: Event) => {
+      const target = e.target as HTMLElement;
+      const id = target.getAttribute('data-id');
+      if (!id) return;
+
+      if (target.classList.contains('download-btn')) {
+        const name = target.getAttribute('data-name') || 'file';
+        handleDownload(id, name);
+      } else if (target.classList.contains('archive-btn')) {
+        handleArchive(id, true);
+      } else if (target.classList.contains('unarchive-btn')) {
+        handleArchive(id, false);
+      }
+    };
+
+    document.addEventListener('click', handleClick);
+    return () => document.removeEventListener('click', handleClick);
+  }, [files]);
 
   return (
-    <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h6">Project Files</Typography>
-        {canModify && (
-          <Button
-            variant="contained"
-            startIcon={<CloudUpload />}
-            onClick={() => setUploadDialogOpen(true)}
-          >
-            Upload File
-          </Button>
-        )}
-      </Box>
+    <Box sx={{ p: 3, backgroundColor: '#f8fafc', minHeight: '100vh' }}>
+      <Typography
+        variant="h4"
+        gutterBottom
+        sx={{ mb: 3, color: '#1e293b', fontWeight: 600 }}
+      >
+        Files
+      </Typography>
 
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-
-      <Card>
-        <CardContent>
-          <DataGrid
-            rows={files}
-            columns={columns}
-            loading={loading}
-            autoHeight
-            disableRowSelectionOnClick
-            pageSizeOptions={[5, 10, 25]}
-            initialState={{
-              pagination: { paginationModel: { pageSize: 10 } },
-            }}
+      {/* KPI Cards - Modern style */}
+      <Box
+        sx={{
+          display: 'flex',
+          gap: 2,
+          mb: 4,
+          overflowX: 'auto',
+          pb: 1,
+          '&::-webkit-scrollbar': { height: 6 },
+          '&::-webkit-scrollbar-thumb': {
+            backgroundColor: '#cbd5e1',
+            borderRadius: 3,
+          },
+        }}
+      >
+        {[
+          {
+            title: 'Total Files',
+            value: files.length,
+            color: '#1976d2',
+            icon: '📂',
+          },
+          {
+            title: 'Active',
+            value: files.filter((f) => !f.is_archived).length,
+            color: '#2e7d32',
+            icon: '✅',
+          },
+          {
+            title: 'Archived',
+            value: files.filter((f) => f.is_archived).length,
+            color: '#f57c00',
+            icon: '📦',
+          },
+        ].map((kpi, i) => (
+          <Card
+            key={i}
             sx={{
-              '& .MuiDataGrid-cell:hover': {
-                color: 'primary.main',
+              minWidth: 200,
+              flex: '0 0 auto',
+              borderRadius: 3,
+              boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                transform: 'translateY(-2px)',
+                boxShadow: '0 6px 20px rgba(0,0,0,0.12)',
               },
             }}
-          />
+          >
+            <CardContent sx={{ p: 2.5 }}>
+              <Box display="flex" alignItems="center" justifyContent="space-between">
+                <Box>
+                  <Typography variant="h4" sx={{ color: kpi.color, fontWeight: 700, mb: 0.5 }}>
+                    {kpi.value}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
+                    {kpi.title}
+                  </Typography>
+                </Box>
+                <Box
+                  sx={{
+                    p: 1.5,
+                    borderRadius: 2,
+                    backgroundColor: `${kpi.color}15`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 24,
+                  }}
+                >
+                  {kpi.icon}
+                </Box>
+              </Box>
+            </CardContent>
+          </Card>
+        ))}
+      </Box>
+
+      {/* Active/Archived Filters */}
+      <Box mb={3} display="flex" gap={2}>
+        <button
+          onClick={() => setStatusFilter('active')}
+          style={{
+            background: statusFilter === 'active' ? '#1976d2' : 'transparent',
+            color: statusFilter === 'active' ? '#fff' : '#1976d2',
+            border: '1px solid #1976d2',
+            borderRadius: '6px',
+            padding: '6px 14px',
+            cursor: 'pointer',
+            fontWeight: 600,
+          }}
+        >
+          Active
+        </button>
+        <button
+          onClick={() => setStatusFilter('archived')}
+          style={{
+            background: statusFilter === 'archived' ? '#1976d2' : 'transparent',
+            color: statusFilter === 'archived' ? '#fff' : '#1976d2',
+            border: '1px solid #1976d2',
+            borderRadius: '6px',
+            padding: '6px 14px',
+            cursor: 'pointer',
+            fontWeight: 600,
+          }}
+        >
+          Archived
+        </button>
+      </Box>
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
+
+      {/* File Table */}
+      <Card>
+        <CardContent>
+          {loading ? (
+            <Typography>Loading...</Typography>
+          ) : (
+            <DataTableBasic
+              data={rows}
+              columns={[
+                'Filename',
+                'Type',
+                'Project',
+                'Uploaded By',
+                'Status',
+                'Uploaded At',
+                'Actions',
+              ]}
+            />
+          )}
         </CardContent>
       </Card>
-
-      <Dialog open={uploadDialogOpen} onClose={() => setUploadDialogOpen(false)}>
-        <DialogTitle>Upload File</DialogTitle>
-        <DialogContent>
-          <Box sx={{ mt: 2 }}>
-            <input
-              type="file"
-              onChange={handleFileSelect}
-              style={{ marginBottom: 16, width: '100%' }}
-            />
-            {selectedFile && (
-              <Box>
-                <Typography variant="body2" color="text.secondary">
-                  Selected: {selectedFile.name} ({formatFileSize(selectedFile.size)})
-                </Typography>
-              </Box>
-            )}
-            {uploading && <LinearProgress sx={{ mt: 2 }} />}
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setUploadDialogOpen(false)} disabled={uploading}>
-            Cancel
-          </Button>
-          <Button 
-            onClick={handleUpload} 
-            variant="contained" 
-            disabled={!selectedFile || uploading}
-          >
-            {uploading ? 'Uploading...' : 'Upload'}
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Box>
   );
 };

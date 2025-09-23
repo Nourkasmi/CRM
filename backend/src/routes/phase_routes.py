@@ -16,7 +16,6 @@ def create_phase(project_id):
     current_user = get_jwt_identity()
     return controller.create_phase(project_id, data, current_user)
 
-
 # -----------------------
 # Get all phases for a project
 # -----------------------
@@ -25,7 +24,6 @@ def create_phase(project_id):
 def get_phases(project_id):
     current_user = get_jwt_identity()
     return controller.get_phases(project_id, current_user)
-
 
 # -----------------------
 # Update a phase
@@ -38,7 +36,6 @@ def update_phase(phase_id):
     current_user = get_jwt_identity()
     return controller.update_phase(phase_id, data, current_user)
 
-
 # -----------------------
 # Delete a phase
 # -----------------------
@@ -48,3 +45,13 @@ def update_phase(phase_id):
 def delete_phase(phase_id):
     current_user = get_jwt_identity()
     return controller.delete_phase(phase_id, current_user)
+
+# -----------------------
+# ✅ Complete phase
+# -----------------------
+@phase_bp.route("/<phase_id>/complete", methods=["PUT"])
+@jwt_required()
+@role_required("manager")
+def complete_phase(phase_id):
+    current_user = get_jwt_identity()
+    return controller.complete_phase(phase_id, current_user)

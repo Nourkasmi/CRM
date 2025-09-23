@@ -17,19 +17,13 @@ import {
   Menu,
   MenuItem,
 } from '@mui/material';
-import { 
-  Add, 
-  MoreVert, 
-  Edit, 
-  Delete,
-  CalendarToday 
-} from '@mui/icons-material';
+import { Add, MoreVert, Edit, Delete, CalendarToday } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { Phase } from '../../types';
 import { phaseAPI } from '../../services/api';
 
 interface PhaseListProps {
-  projectId: number;
+  projectId: string;
 }
 
 export const PhaseList: React.FC<PhaseListProps> = ({ projectId }) => {
@@ -41,7 +35,7 @@ export const PhaseList: React.FC<PhaseListProps> = ({ projectId }) => {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    status: 'planning',
+    status: 'active',
     start_date: '',
     end_date: '',
   });
@@ -66,34 +60,38 @@ export const PhaseList: React.FC<PhaseListProps> = ({ projectId }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     try {
-      const phaseData = {
-        ...formData,
-        project_id: projectId,
-      };
-
+      const phaseData = { ...formData, project_id: projectId };
       if (editingPhase) {
         await phaseAPI.update(editingPhase.id, phaseData);
       } else {
-        await phaseAPI.create(phaseData);
+        await phaseAPI.create(projectId, phaseData);
       }
-
       await loadPhases();
       handleCloseDialog();
-    } catch (err) {
+    } catch {
       setError(editingPhase ? 'Failed to update phase' : 'Failed to create phase');
     }
   };
 
-  const handleDelete = async (phaseId: number) => {
+  const handleDelete = async (phaseId: string) => {
     if (window.confirm('Are you sure you want to delete this phase?')) {
       try {
         await phaseAPI.delete(phaseId);
         await loadPhases();
-      } catch (err) {
+      } catch {
         setError('Failed to delete phase');
       }
+    }
+    setAnchorEl(null);
+  };
+
+  const handleComplete = async (phaseId: string) => {
+    try {
+      await phaseAPI.complete(phaseId);
+      await loadPhases();
+    } catch {
+      setError('Failed to mark phase as completed');
     }
     setAnchorEl(null);
   };
@@ -103,17 +101,17 @@ export const PhaseList: React.FC<PhaseListProps> = ({ projectId }) => {
       setEditingPhase(phase);
       setFormData({
         name: phase.name,
-        description: phase.description,
+        description: '',
         status: phase.status,
-        start_date: phase.start_date || '',
-        end_date: phase.end_date || '',
+        start_date: '',
+        end_date: '',
       });
     } else {
       setEditingPhase(null);
       setFormData({
         name: '',
         description: '',
-        status: 'planning',
+        status: 'active',
         start_date: '',
         end_date: '',
       });
@@ -136,16 +134,6 @@ export const PhaseList: React.FC<PhaseListProps> = ({ projectId }) => {
     setSelectedPhase(null);
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'planning': return 'default';
-      case 'in_progress': return 'warning';
-      case 'completed': return 'success';
-      case 'on_hold': return 'error';
-      default: return 'default';
-    }
-  };
-
   const canModify = user?.role === 'superuser' || user?.role === 'manager';
 
   return (
@@ -153,11 +141,7 @@ export const PhaseList: React.FC<PhaseListProps> = ({ projectId }) => {
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Typography variant="h6">Project Phases</Typography>
         {canModify && (
-          <Button
-            variant="contained"
-            startIcon={<Add />}
-            onClick={() => handleOpenDialog()}
-          >
+          <Button variant="contained" startIcon={<Add />} onClick={() => handleOpenDialog()}>
             Add Phase
           </Button>
         )}
@@ -171,38 +155,27 @@ export const PhaseList: React.FC<PhaseListProps> = ({ projectId }) => {
             <Card sx={{ height: '100%' }}>
               <CardContent>
                 <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
-                  <Typography variant="h6" component="div">
-                    {phase.name}
-                  </Typography>
+                  <Typography variant="h6">{phase.name}</Typography>
                   {canModify && (
-                    <IconButton
-                      size="small"
-                      onClick={(e) => handleMenuClick(e, phase)}
-                    >
+                    <IconButton size="small" onClick={(e) => handleMenuClick(e, phase)}>
                       <MoreVert />
                     </IconButton>
                   )}
                 </Box>
-                
-                <Typography variant="body2" color="text.secondary" paragraph>
-                  {phase.description}
-                </Typography>
-                
+
                 <Box mb={2}>
-                  <Chip 
-                    label={phase.status.replace('_', ' ')} 
-                    color={getStatusColor(phase.status) as any}
+                  <Chip
+                    label={phase.status}
+                    color={phase.status === 'completed' ? 'success' : 'default'}
                     size="small"
                   />
                 </Box>
-                
-                {(phase.start_date || phase.end_date) && (
+
+                {phase.deadline && (
                   <Box display="flex" alignItems="center" color="text.secondary">
                     <CalendarToday fontSize="small" sx={{ mr: 1 }} />
                     <Typography variant="body2">
-                      {phase.start_date && new Date(phase.start_date).toLocaleDateString()}
-                      {phase.start_date && phase.end_date && ' - '}
-                      {phase.end_date && new Date(phase.end_date).toLocaleDateString()}
+                      {new Date(phase.deadline).toLocaleDateString()}
                     </Typography>
                   </Box>
                 )}
@@ -210,43 +183,40 @@ export const PhaseList: React.FC<PhaseListProps> = ({ projectId }) => {
             </Card>
           </Grid>
         ))}
-        
-        {phases.length === 0 && !loading && (
-          <Grid item xs={12}>
-            <Box textAlign="center" py={4}>
-              <Typography color="text.secondary">
-                No phases found. {canModify && 'Create your first phase to get started.'}
-              </Typography>
-            </Box>
-          </Grid>
-        )}
       </Grid>
 
-      <Menu
-        anchorEl={anchorEl}
-        open={Boolean(anchorEl)}
-        onClose={handleMenuClose}
-      >
-        <MenuItem onClick={() => {
-          if (selectedPhase) handleOpenDialog(selectedPhase);
-          handleMenuClose();
-        }}>
+      <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
+        <MenuItem
+          onClick={() => {
+            if (selectedPhase) handleOpenDialog(selectedPhase);
+            handleMenuClose();
+          }}
+        >
           <Edit fontSize="small" sx={{ mr: 1 }} />
           Edit
         </MenuItem>
-        <MenuItem onClick={() => {
-          if (selectedPhase) handleDelete(selectedPhase.id);
-        }}>
+        <MenuItem
+          onClick={() => {
+            if (selectedPhase) handleDelete(selectedPhase.id);
+          }}
+        >
           <Delete fontSize="small" sx={{ mr: 1 }} />
           Delete
         </MenuItem>
+        {selectedPhase?.status !== 'completed' && (
+          <MenuItem
+            onClick={() => {
+              if (selectedPhase) handleComplete(selectedPhase.id);
+            }}
+          >
+            ✅ Mark as Completed
+          </MenuItem>
+        )}
       </Menu>
 
       <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
         <form onSubmit={handleSubmit}>
-          <DialogTitle>
-            {editingPhase ? 'Edit Phase' : 'Add New Phase'}
-          </DialogTitle>
+          <DialogTitle>{editingPhase ? 'Edit Phase' : 'Add New Phase'}</DialogTitle>
           <DialogContent>
             <TextField
               autoFocus
@@ -258,39 +228,6 @@ export const PhaseList: React.FC<PhaseListProps> = ({ projectId }) => {
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               required
-            />
-            <TextField
-              margin="dense"
-              name="description"
-              label="Description"
-              fullWidth
-              multiline
-              rows={3}
-              variant="outlined"
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            />
-            <TextField
-              margin="dense"
-              name="start_date"
-              label="Start Date"
-              type="date"
-              fullWidth
-              variant="outlined"
-              value={formData.start_date}
-              onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
-              InputLabelProps={{ shrink: true }}
-            />
-            <TextField
-              margin="dense"
-              name="end_date"
-              label="End Date"
-              type="date"
-              fullWidth
-              variant="outlined"
-              value={formData.end_date}
-              onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
-              InputLabelProps={{ shrink: true }}
             />
           </DialogContent>
           <DialogActions>

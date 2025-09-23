@@ -19,10 +19,19 @@
     "@mui/material": "^7.3.2",
     "@mui/x-data-grid": "^8.11.1",
     "axios": "^1.11.0",
+    "bootstrap": "^5.3.8",
+    "datatables.net": "^2.3.4",
+    "datatables.net-bs5": "^2.3.4",
+    "datatables.net-buttons-bs5": "^3.2.5",
+    "datatables.net-dt": "^2.3.4",
+    "datatables.net-responsive-bs5": "^3.0.6",
+    "jszip": "^3.10.1",
     "lucide-react": "^0.344.0",
+    "pdfmake": "^0.2.20",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^7.8.2"
+    "react-router-dom": "^7.8.2",
+    "recharts": "^2.15.4"
   },
   "devDependencies": {
     "@eslint/js": "^9.9.1",

@@ -16,7 +16,6 @@ def create_project():
     current_user = get_jwt_identity()
     return controller.create_project(data, current_user)
 
-
 # -----------------------
 # Assign manager (superuser only)
 # -----------------------
@@ -26,7 +25,6 @@ def create_project():
 def assign_manager(project_id, manager_id):
     current_user = get_jwt_identity()
     return controller.assign_manager(project_id, manager_id, current_user)
-
 
 # -----------------------
 # Assign user (manager/superuser only)
@@ -38,7 +36,6 @@ def assign_user(project_id, user_id):
     current_user = get_jwt_identity()
     return controller.assign_user(project_id, user_id, current_user)
 
-
 # -----------------------
 # Get all projects (any authenticated user)
 # -----------------------
@@ -48,7 +45,6 @@ def get_projects():
     current_user = get_jwt_identity()
     return controller.get_projects(current_user)
 
-
 # -----------------------
 # Get single project (any authenticated user)
 # -----------------------
@@ -57,7 +53,6 @@ def get_projects():
 def get_project(project_id):
     current_user = get_jwt_identity()
     return controller.get_project(project_id, current_user)
-
 
 # -----------------------
 # Update project (superuser or manager if owns/assigned)
@@ -69,7 +64,6 @@ def update_project(project_id):
     data = request.json
     current_user = get_jwt_identity()
     return controller.update_project(project_id, data, current_user)
-
 
 # -----------------------
 # Delete project (superuser only)
@@ -91,7 +85,6 @@ def archive_project(project_id):
     current_user = get_jwt_identity()
     return controller.archive_project(project_id, current_user, archive=True)
 
-
 # -----------------------
 # Unarchive project (superuser only)
 # -----------------------
@@ -101,3 +94,13 @@ def archive_project(project_id):
 def unarchive_project(project_id):
     current_user = get_jwt_identity()
     return controller.archive_project(project_id, current_user, archive=False)
+
+# -----------------------
+# ✅ Complete project (superuser/manager only)
+# -----------------------
+@project_bp.route("/<project_id>/complete", methods=["PUT"])
+@jwt_required()
+@role_required("manager")
+def complete_project(project_id):
+    current_user = get_jwt_identity()
+    return controller.complete_project(project_id, current_user)

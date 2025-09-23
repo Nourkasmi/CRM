@@ -258,3 +258,17 @@ def archive_project(project_id, current_user, archive=True):
 
     project.update(set__is_archived=archive, set__updated_at=datetime.utcnow())
     return jsonify({"msg": f"Project {'archived' if archive else 'unarchived'} successfully"}), 200
+
+# -------------------------------
+# ✅ Mark project as completed
+# -------------------------------
+def complete_project(project_id, current_user):
+    project = Project.objects(id=ObjectId(project_id)).first()
+    if not project:
+        return jsonify({"msg": "Project not found"}), 404
+
+    if current_user.get("role") not in ["superuser", "manager"]:
+        return jsonify({"msg": "Only superuser or manager can complete a project"}), 403
+
+    project.update(set__status="completed", set__updated_at=datetime.utcnow())
+    return jsonify({"msg": "Project marked as completed"}), 200

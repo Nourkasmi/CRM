@@ -14,6 +14,15 @@ def upload_file():
     return controller.upload_file(request, current_user)
 
 # -------------------------------
+# Get all files
+# -------------------------------
+@file_bp.route("/", methods=["GET"])
+@jwt_required()
+def get_all_files():
+    include_archived = request.args.get("include_archived", "false").lower() == "true"
+    return controller.get_all_files(include_archived)
+
+# -------------------------------
 # Get all files for a project
 # -------------------------------
 @file_bp.route("/project/<project_id>", methods=["GET"])

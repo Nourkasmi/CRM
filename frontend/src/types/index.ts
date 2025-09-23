@@ -1,15 +1,15 @@
 export interface User {
-  id: string; // MongoDB ObjectId as string
+  id: string;
   email: string;
   name: string;
   role: 'superuser' | 'manager' | 'user';
-  is_active: boolean; // Changed from is_validated to match backend
+  is_active: boolean;
   created_at: string;
   updated_at: string;
 }
 
 export interface Project {
-  id: string; // MongoDB ObjectId as string
+  id: string;
   name: string;
   description: string;
   deadline?: string;
@@ -20,18 +20,9 @@ export interface Project {
   created_at: string;
   updated_at: string;
   is_archived: boolean;
-  managers: Array<{
-    id: string;
-    email: string;
-  }>;
-  members: Array<{
-    id: string;
-    email: string;
-  }>;
-  assigned_to: Array<{
-    id: string;
-    email: string;
-  }>;
+  managers: Array<{ id: string; email: string }>;
+  members: Array<{ id: string; email: string }>;
+  assigned_to: Array<{ id: string; email: string }>;
   phases: Phase[];
 }
 
@@ -41,22 +32,17 @@ export interface Phase {
   project: string; // Project ID
   deadline?: string;
   created_at: string;
+  status: 'active' | 'completed'; // ✅ added
 }
 
 export interface Task {
   id: string;
   title: string;
   description: string;
-  phase: string; // Phase ID
-  project: string; // Project ID
-  created_by: {
-    id: string;
-    email: string;
-  };
-  assigned_to: Array<{
-    id: string;
-    email: string;
-  }>;
+  phase: string;
+  project: string;
+  created_by: { id: string; email: string };
+  assigned_to: Array<{ id: string; email: string }>;
   status: 'todo' | 'in_progress' | 'done';
   deadline?: string;
   created_at: string;
@@ -66,15 +52,9 @@ export interface ProjectFile {
   id: string;
   filename: string;
   path: string;
-  uploaded_by: {
-    id: string;
-    email: string;
-  };
-  project: string; // Project ID
-  filetype: {
-    id: string;
-    name: string;
-  };
+  uploaded_by: { id: string; email: string };
+  project: string;
+  filetype: { id: string; name: string };
   uploaded_at: string;
   is_archived: boolean;
 }
@@ -87,7 +67,7 @@ export interface FileType {
 }
 
 export interface AuthResponse {
-  token: string; // Changed from access_token to match backend
+  token: string;
   role: string;
   id: string;
   is_active: boolean;

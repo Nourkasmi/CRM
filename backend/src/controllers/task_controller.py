@@ -200,3 +200,17 @@ def delete_task(task_id, current_user):
 
     task.delete()
     return jsonify({"msg": "Task deleted successfully"}), 200
+
+# -------------------------------
+# ✅ Mark task as done
+# -------------------------------
+def complete_task(task_id, current_user):
+    task = Task.objects(id=task_id).first()
+    if not task:
+        return jsonify({"msg": "Task not found"}), 404
+
+    if current_user.get("role") not in ["superuser", "manager", "user"]:
+        return jsonify({"msg": "Unauthorized"}), 403
+
+    task.update(set__status="done")
+    return jsonify({"msg": "Task marked as done"}), 200

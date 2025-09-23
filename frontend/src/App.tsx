@@ -15,6 +15,7 @@ import { ProjectDetail } from "./components/projects/ProjectDetail";
 import { useAuth } from "./contexts/AuthContext";
 import { ProjectPhaseTaskSplit } from "./components/projects/ProjectPhaseTaskSplit";
 import { UserList } from "./components/users/UserList";
+import FilesPage from "./components/files/FilesPage";
 
 
 // ✅ Forgot & Reset Password components
@@ -69,8 +70,9 @@ function App() {
                       {/* NOTE: projectId={1} is a placeholder.
                           Later you can make a global AllTasksPage 
                           or handle dynamic project IDs. */}
-
+                          
                       <Route path="/" element={<Navigate to="/dashboard" />} />
+                      <Route path="/files" element={<FilesPage />} />
                     </Routes>
                   </Layout>
                 </ProtectedRoute>

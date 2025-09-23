@@ -13,13 +13,15 @@ class Project(Document):
     members = ListField(ReferenceField(User))
     is_archived = BooleanField(default=False)
 
+    # ✅ NEW: track lifecycle
+    status = StringField(default="active", choices=["active", "completed", "archived"])
+
     meta = {"collection": "projects"}
 
     def to_dict(self):
         try:
-            from src.models.phase_model import Phase  # éviter circular import
+            from src.models.phase_model import Phase  # avoid circular import
 
-            # ✅ Safe deref for created_by
             created_by_data = None
             if self.created_by and getattr(self.created_by, "id", None):
                 created_by_data = {
@@ -27,13 +29,11 @@ class Project(Document):
                     "email": getattr(self.created_by, "email", None)
                 }
 
-            # ✅ Safe deref for managers
             safe_managers = []
             for m in (self.managers or []):
                 if m and getattr(m, "id", None):
                     safe_managers.append({"id": str(m.id), "email": getattr(m, "email", None)})
 
-            # ✅ Safe deref for members
             safe_members = []
             for u in (self.members or []):
                 if u and getattr(u, "id", None):
@@ -48,6 +48,7 @@ class Project(Document):
                 "created_at": self.created_at.isoformat() if self.created_at else None,
                 "updated_at": self.updated_at.isoformat() if self.updated_at else None,
                 "is_archived": self.is_archived,
+                "status": self.status,
                 "managers": safe_managers,
                 "members": safe_members,
                 "assigned_to": safe_managers + safe_members,

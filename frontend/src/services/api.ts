@@ -5,8 +5,8 @@ const API_BASE_URL = 'http://localhost:5000/api'; // Flask backend
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  withCredentials: true, // ✅ must match Flask CORS supports_credentials=True
-  headers: { 'Content-Type': 'application/json' }, // ✅ fix 415
+  withCredentials: true,
+  headers: { 'Content-Type': 'application/json' },
 });
 
 // ------------------
@@ -74,6 +74,8 @@ export const projectAPI = {
   update: (id: string, data: Partial<Project>) => api.put<Project>(`/projects/${id}`, data),
   delete: (id: string) => api.delete(`/projects/${id}`),
   archive: (id: string) => api.post(`/projects/${id}/archive`),
+  unarchive: (id: string) => api.post(`/projects/${id}/unarchive`),
+  complete: (id: string) => api.put(`/projects/${id}/complete`), // ✅ use PUT not POST
 };
 
 // ------------------
@@ -82,10 +84,13 @@ export const projectAPI = {
 export const phaseAPI = {
   getByProject: (projectId: string) => api.get<Phase[]>(`/phases/${projectId}`),
   create: (projectId: string, data: { name: string; deadline?: string }) =>
-    api.post<Phase>(`/phases/${projectId}`, data), // ✅ fixed
+    api.post<Phase>(`/phases/${projectId}`, data),
   update: (id: string, data: Partial<Phase>) =>
     api.put<Phase>(`/phases/update/${id}`, data),
   delete: (id: string) => api.delete(`/phases/${id}`),
+
+  // ✅ Mark phase complete (use PUT to match Flask)
+  complete: (id: string) => api.put(`/phases/${id}/complete`),
 };
 
 // ------------------
@@ -97,20 +102,25 @@ export const taskAPI = {
   create: (
     phaseId: string,
     data: { title: string; description?: string; status: string }
-  ) => api.post<Task>('/tasks/', { ...data, phase_id: phaseId }), // ✅ fixed
+  ) => api.post<Task>('/tasks/', { ...data, phase_id: phaseId }),
   update: (id: string, data: Partial<Task>) => api.put<Task>(`/tasks/${id}`, data),
   delete: (id: string) => api.delete(`/tasks/${id}`),
   updateStatus: (id: string, status: string) => api.patch(`/tasks/${id}`, { status }),
   assignUser: (taskId: string, userId: string) =>
     api.post(`/tasks/${taskId}/assign/${userId}`),
+
+  // ✅ Mark task complete
+  complete: (id: string) => api.put(`/tasks/${id}/complete`),
 };
 
 // ------------------
 // File endpoints
 // ------------------
 export const fileAPI = {
-  getByProject: (projectId: string) =>
-    api.get<ProjectFile[]>(`/files/project/${projectId}`),
+  getAll: (includeArchived = false) =>
+    api.get<ProjectFile[]>(`/files/?include_archived=${includeArchived}`),
+  getByProject: (projectId: string, includeArchived = false) =>
+    api.get<ProjectFile[]>(`/files/project/${projectId}?include_archived=${includeArchived}`),
   upload: (projectId: string, file: File, filetypeId: string) => {
     const formData = new FormData();
     formData.append('file', file);
@@ -122,6 +132,7 @@ export const fileAPI = {
   },
   download: (id: string) => api.get(`/files/${id}/download`, { responseType: 'blob' }),
   archive: (id: string) => api.post(`/files/${id}/archive`),
+  unarchive: (id: string) => api.post(`/files/${id}/unarchive`),
   delete: (id: string) => api.delete(`/files/${id}`),
 };
 

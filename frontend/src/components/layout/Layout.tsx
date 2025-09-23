@@ -21,7 +21,6 @@ import {
   Menu as MenuIcon,
   Dashboard,
   Work,
-  Assignment,
   Folder,
   Category,
   AccountCircle,
@@ -66,7 +65,6 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     const baseItems = [
       { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
       { text: 'Projects', icon: <Work />, path: '/projects' },
-      { text: 'Tasks', icon: <Assignment />, path: '/tasks' },
       { text: 'Files', icon: <Folder />, path: '/files' },
     ];
 
@@ -126,13 +124,17 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             <MenuIcon />
           </IconButton>
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
-            {location.pathname.split('/')[1]?.charAt(0).toUpperCase() + 
-             location.pathname.split('/')[1]?.slice(1) || 'Dashboard'}
+            {location.pathname.split('/')[1]?.charAt(0).toUpperCase() +
+              location.pathname.split('/')[1]?.slice(1) || 'Dashboard'}
           </Typography>
           <Button
             color="inherit"
             onClick={handleProfileMenuOpen}
-            startIcon={<Avatar sx={{ width: 32, height: 32 }}>{user?.username?.[0]?.toUpperCase()}</Avatar>}
+            startIcon={
+              <Avatar sx={{ width: 32, height: 32 }}>
+                {user?.username?.[0]?.toUpperCase()}
+              </Avatar>
+            }
           >
             {user?.username}
           </Button>
@@ -141,7 +143,12 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             open={Boolean(anchorEl)}
             onClose={handleProfileMenuClose}
           >
-            <MenuItem onClick={() => { navigate('/profile'); handleProfileMenuClose(); }}>
+            <MenuItem
+              onClick={() => {
+                navigate('/profile');
+                handleProfileMenuClose();
+              }}
+            >
               <ListItemIcon>
                 <AccountCircle fontSize="small" />
               </ListItemIcon>
@@ -169,7 +176,10 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           }}
           sx={{
             display: { xs: 'block', sm: 'none' },
-            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
+            '& .MuiDrawer-paper': {
+              boxSizing: 'border-box',
+              width: drawerWidth,
+            },
           }}
         >
           {drawer}
@@ -178,7 +188,10 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           variant="permanent"
           sx={{
             display: { xs: 'none', sm: 'block' },
-            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
+            '& .MuiDrawer-paper': {
+              boxSizing: 'border-box',
+              width: drawerWidth,
+            },
           }}
           open
         >

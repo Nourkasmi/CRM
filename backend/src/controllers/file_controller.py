@@ -1,5 +1,5 @@
 import os
-from flask import jsonify, current_app, send_file
+from flask import jsonify, send_file, request
 from datetime import datetime
 from werkzeug.utils import secure_filename
 from src.models.file_model import File
@@ -55,6 +55,18 @@ def upload_file(request, current_user):
         "msg": "File uploaded successfully",
         "file": file_doc.to_dict()
     }), 201
+
+
+# -------------------------------
+# Get all files (global)
+# -------------------------------
+def get_all_files(include_archived=False):
+    query = File.objects()
+    if not include_archived:
+        query = query.filter(is_archived=False)
+
+    files = query
+    return jsonify([f.to_dict() for f in files]), 200
 
 
 # -------------------------------

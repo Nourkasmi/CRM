@@ -1,11 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Box,
-  Grid,
   Card,
   CardContent,
   Typography,
-  Chip,
   Button,
   Dialog,
   DialogTitle,
@@ -19,18 +17,16 @@ import {
   Alert,
   LinearProgress,
 } from "@mui/material";
-import { DataGrid, GridColDef, GridActionsCellItem } from "@mui/x-data-grid";
 import {
   CheckCircle,
   People,
   PersonAdd,
   ManageAccounts,
-  Delete,
-  Verified,
 } from "@mui/icons-material";
 import { userAPI } from "../../services/api";
+import DataTableBasic from "../common/DataTableBasic";
 
-// shape we’ll render in the grid (robustly mapped from backend)
+// shape we’ll render in the table
 type RowUser = {
   id: string;
   username: string;
@@ -143,67 +139,34 @@ export const UserList: React.FC = () => {
     }
   };
 
-  const columns: GridColDef[] = [
-    {
-      field: "username",
-      headerName: "Username",
-      flex: 1,
-      minWidth: 150,
-      renderCell: (p) => <Typography fontWeight={500}>{p.value}</Typography>,
-    },
-    { field: "email", headerName: "Email", flex: 1.4, minWidth: 220 },
-    {
-      field: "role",
-      headerName: "Role",
-      minWidth: 130,
-      renderCell: (p) => {
-        const color =
-          p.value === "superuser" ? "error" : p.value === "manager" ? "warning" : "primary";
-        return <Chip label={p.value} color={color as any} size="small" sx={{ textTransform: "capitalize" }} />;
-      },
-    },
-    {
-      field: "is_validated",
-      headerName: "Validated",
-      minWidth: 130,
-      renderCell: (p) =>
-        p.value ? (
-          <Chip size="small" icon={<Verified />} label="Validated" color="success" />
-        ) : (
-          <Chip size="small" label="Pending" />
-        ),
-    },
-    {
-      field: "actions",
-      type: "actions",
-      headerName: "Actions",
-      getActions: (params) => {
-        const u = params.row as RowUser;
-        return [
-          <GridActionsCellItem
-            icon={<CheckCircle color="success" />}
-            label="Validate"
-            onClick={() => validateUser(u.id)}
-            disabled={u.is_validated}
-            showInMenu
-          />,
-          <GridActionsCellItem
-            icon={<ManageAccounts color="primary" />}
-            label="Assign role"
-            onClick={() => openAssignRole(u)}
-            showInMenu
-          />,
-          <GridActionsCellItem
-            icon={<Delete color="error" />}
-            label="Delete"
-            onClick={() => deleteUser(u.id)}
-            showInMenu
-          />,
-        ];
-      },
-      minWidth: 90,
-    },
-  ];
+  // ✅ Prepare rows for DataTables
+  const dtRows = rows.map((u) => [
+    u.username,
+    u.email,
+    `<span class="badge ${u.role === "superuser"
+      ? "bg-danger"
+      : u.role === "manager"
+      ? "bg-warning text-dark"
+      : "bg-primary"}">${u.role}</span>`,
+    u.is_validated
+      ? `<span class="badge bg-success">Validated</span>`
+      : `<span class="badge bg-secondary">Pending</span>`,
+    `
+      <button class="btn btn-sm btn-outline-success" onclick="window.validateUser('${u.id}')">Validate</button>
+      <button class="btn btn-sm btn-outline-primary" onclick="window.openAssignRole('${u.id}')">Role</button>
+      <button class="btn btn-sm btn-outline-danger" onclick="window.deleteUser('${u.id}')">Delete</button>
+    `,
+  ]);
+
+  // ✅ Expose handlers globally so DataTables buttons can call them
+  useEffect(() => {
+    (window as any).validateUser = validateUser;
+    (window as any).openAssignRole = (id: string) => {
+      const user = rows.find((r) => r.id === id);
+      if (user) openAssignRole(user);
+    };
+    (window as any).deleteUser = deleteUser;
+  }, [rows]);
 
   return (
     <Box p={3}>
@@ -211,70 +174,84 @@ export const UserList: React.FC = () => {
         Users
       </Typography>
 
-      {/* KPIs */}
-      <Grid container spacing={2} sx={{ mb: 2 }}>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-              <People color="primary" />
-              <Box>
-                <Typography variant="h6">{stats.total}</Typography>
-                <Typography color="text.secondary">Total Users</Typography>
+      {/* ✅ KPI Cards same style as SuperuserDashboard */}
+      <Box
+        sx={{
+          display: "flex",
+          gap: 2,
+          mb: 4,
+          overflowX: "auto",
+          pb: 1,
+          "&::-webkit-scrollbar": { height: 6 },
+          "&::-webkit-scrollbar-thumb": {
+            backgroundColor: "#cbd5e1",
+            borderRadius: 3,
+          },
+        }}
+      >
+        {[
+          { title: "Total Users", value: stats.total, icon: People, color: "#1976d2" },
+          { title: "Validated", value: stats.validated, icon: CheckCircle, color: "#2e7d32" },
+          { title: "Pending", value: stats.pending, icon: PersonAdd, color: "#f57c00" },
+          {
+            title: "Roles",
+            value: `${stats.managers} mgr · ${stats.supers} super · ${stats.regular} user`,
+            icon: ManageAccounts,
+            color: "#0097a7",
+          },
+        ].map((kpi, index) => (
+          <Card
+            key={index}
+            sx={{
+              minWidth: 200,
+              flex: "0 0 auto",
+              borderRadius: 3,
+              boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
+              transition: "all 0.3s ease",
+              "&:hover": {
+                transform: "translateY(-2px)",
+                boxShadow: "0 6px 20px rgba(0,0,0,0.12)",
+              },
+            }}
+          >
+            <CardContent sx={{ p: 2.5 }}>
+              <Box display="flex" alignItems="center" justifyContent="space-between">
+                <Box>
+                  <Typography variant="h4" sx={{ color: kpi.color, fontWeight: 700, mb: 0.5 }}>
+                    {kpi.value}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
+                    {kpi.title}
+                  </Typography>
+                </Box>
+                <Box
+                  sx={{
+                    p: 1.5,
+                    borderRadius: 2,
+                    backgroundColor: `${kpi.color}15`,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <kpi.icon sx={{ fontSize: 28, color: kpi.color }} />
+                </Box>
               </Box>
             </CardContent>
           </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-              <CheckCircle color="success" />
-              <Box>
-                <Typography variant="h6">{stats.validated}</Typography>
-                <Typography color="text.secondary">Validated</Typography>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-              <PersonAdd color="warning" />
-              <Box>
-                <Typography variant="h6">{stats.pending}</Typography>
-                <Typography color="text.secondary">Pending</Typography>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-              <ManageAccounts color="secondary" />
-              <Box>
-                <Typography variant="h6">
-                  {stats.managers} mgr · {stats.supers} super · {stats.regular} user
-                </Typography>
-                <Typography color="text.secondary">Roles</Typography>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
+        ))}
+      </Box>
 
       {/* Table */}
       <Card>
         {loading && <LinearProgress />}
         <CardContent>
-          <DataGrid
-            rows={rows}
-            columns={columns}
-            loading={loading}
-            autoHeight
-            disableRowSelectionOnClick
-            pageSizeOptions={[5, 10, 25]}
-            initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
-            sx={{
-              "& .MuiDataGrid-row:hover": { backgroundColor: "action.hover" },
+          <DataTableBasic
+            data={dtRows}
+            columns={["Username", "Email", "Role", "Validated", "Actions"]}
+            options={{
+              dom: "Bfrtip",
+              buttons: ["copy", "csv", "excel", "pdf", "print"],
             }}
           />
         </CardContent>
