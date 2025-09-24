@@ -12,11 +12,15 @@ class Task(Document):
     status = StringField(default="todo", choices=["todo", "in_progress", "done"])
     deadline = DateTimeField(required=False)
     created_at = DateTimeField(default=datetime.utcnow)
+    updated_at = DateTimeField(default=datetime.utcnow)   # ✅ added
 
     meta = {"collection": "tasks"}
 
+    def save(self, *args, **kwargs):
+        self.updated_at = datetime.utcnow()
+        return super(Task, self).save(*args, **kwargs)
+
     def to_dict(self):
-        # Safe dereference for created_by
         created_by_data = None
         try:
             if self.created_by:
@@ -27,7 +31,6 @@ class Task(Document):
         except Exception:
             created_by_data = None
 
-        # Safe dereference for assigned_to
         assigned_list = []
         for u in self.assigned_to:
             try:
@@ -49,4 +52,5 @@ class Task(Document):
             "status": self.status,
             "deadline": self.deadline.isoformat() if self.deadline else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }

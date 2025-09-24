@@ -1,5 +1,17 @@
 import axios from 'axios';
-import { AuthResponse, User, Project, Phase, Task, ProjectFile, FileType } from '../types';
+import {
+  AuthResponse,
+  User,
+  Project,
+  ProjectCreatePayload,
+  ProjectUpdatePayload,
+  Phase,
+  Task,
+  TaskCreatePayload,
+  TaskUpdatePayload,
+  ProjectFile,
+  FileType,
+} from '../types';
 
 const API_BASE_URL = 'http://localhost:5000/api'; // Flask backend
 
@@ -70,12 +82,13 @@ export const userAPI = {
 export const projectAPI = {
   getAll: () => api.get<Project[]>('/projects/'),
   getById: (id: string) => api.get<Project>(`/projects/${id}`),
-  create: (data: Partial<Project>) => api.post<Project>('/projects/', data),
-  update: (id: string, data: Partial<Project>) => api.put<Project>(`/projects/${id}`, data),
+  create: (data: ProjectCreatePayload) => api.post<Project>('/projects/', data),
+  update: (id: string, data: ProjectUpdatePayload) =>
+    api.put<Project>(`/projects/${id}`, data),
   delete: (id: string) => api.delete(`/projects/${id}`),
   archive: (id: string) => api.post(`/projects/${id}/archive`),
   unarchive: (id: string) => api.post(`/projects/${id}/unarchive`),
-  complete: (id: string) => api.put(`/projects/${id}/complete`), // ✅ use PUT not POST
+  complete: (id: string) => api.put(`/projects/${id}/complete`),
 };
 
 // ------------------
@@ -89,7 +102,7 @@ export const phaseAPI = {
     api.put<Phase>(`/phases/update/${id}`, data),
   delete: (id: string) => api.delete(`/phases/${id}`),
 
-  // ✅ Mark phase complete (use PUT to match Flask)
+  // ✅ Mark phase complete
   complete: (id: string) => api.put(`/phases/${id}/complete`),
 };
 
@@ -99,13 +112,13 @@ export const phaseAPI = {
 export const taskAPI = {
   getByProject: (projectId: string) => api.get<Task[]>(`/tasks/project/${projectId}`),
   getByPhase: (phaseId: string) => api.get<Task[]>(`/tasks/phase/${phaseId}`),
-  create: (
-    phaseId: string,
-    data: { title: string; description?: string; status: string }
-  ) => api.post<Task>('/tasks/', { ...data, phase_id: phaseId }),
-  update: (id: string, data: Partial<Task>) => api.put<Task>(`/tasks/${id}`, data),
+  create: (phaseId: string, data: TaskCreatePayload) =>
+    api.post<Task>('/tasks/', { ...data, phase_id: phaseId }),
+  update: (id: string, data: TaskUpdatePayload) =>
+    api.put<Task>(`/tasks/${id}`, data),
   delete: (id: string) => api.delete(`/tasks/${id}`),
-  updateStatus: (id: string, status: string) => api.patch(`/tasks/${id}`, { status }),
+  updateStatus: (id: string, status: string) =>
+    api.patch(`/tasks/${id}`, { status }),
   assignUser: (taskId: string, userId: string) =>
     api.post(`/tasks/${taskId}/assign/${userId}`),
 
@@ -120,7 +133,9 @@ export const fileAPI = {
   getAll: (includeArchived = false) =>
     api.get<ProjectFile[]>(`/files/?include_archived=${includeArchived}`),
   getByProject: (projectId: string, includeArchived = false) =>
-    api.get<ProjectFile[]>(`/files/project/${projectId}?include_archived=${includeArchived}`),
+    api.get<ProjectFile[]>(
+      `/files/project/${projectId}?include_archived=${includeArchived}`
+    ),
   upload: (projectId: string, file: File, filetypeId: string) => {
     const formData = new FormData();
     formData.append('file', file);
@@ -130,7 +145,8 @@ export const fileAPI = {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
   },
-  download: (id: string) => api.get(`/files/${id}/download`, { responseType: 'blob' }),
+  download: (id: string) =>
+    api.get(`/files/${id}/download`, { responseType: 'blob' }),
   archive: (id: string) => api.post(`/files/${id}/archive`),
   unarchive: (id: string) => api.post(`/files/${id}/unarchive`),
   delete: (id: string) => api.delete(`/files/${id}`),
@@ -142,7 +158,8 @@ export const fileAPI = {
 export const fileTypeAPI = {
   getAll: () => api.get<FileType[]>('/filetypes/'),
   create: (data: Partial<FileType>) => api.post<FileType>('/filetypes/', data),
-  update: (id: string, data: Partial<FileType>) => api.put<FileType>(`/filetypes/${id}`, data),
+  update: (id: string, data: Partial<FileType>) =>
+    api.put<FileType>(`/filetypes/${id}`, data),
   delete: (id: string) => api.delete(`/filetypes/${id}`),
 };
 

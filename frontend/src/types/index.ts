@@ -1,3 +1,6 @@
+// ------------------
+// User
+// ------------------
 export interface User {
   id: string;
   email: string;
@@ -8,6 +11,9 @@ export interface User {
   updated_at: string;
 }
 
+// ------------------
+// Project (API Response)
+// ------------------
 export interface Project {
   id: string;
   name: string;
@@ -26,15 +32,36 @@ export interface Project {
   phases: Phase[];
 }
 
+// ✅ New: Project Creation Payload
+export interface ProjectCreatePayload {
+  name: string;
+  description?: string;
+  deadline: string;
+  manager_ids?: string[]; // ⬅️ backend expects IDs here
+}
+
+// ✅ New: Project Update Payload
+export interface ProjectUpdatePayload {
+  name?: string;
+  description?: string;
+  deadline?: string;
+}
+
+// ------------------
+// Phase
+// ------------------
 export interface Phase {
   id: string;
   name: string;
   project: string; // Project ID
   deadline?: string;
   created_at: string;
-  status: 'active' | 'completed'; // ✅ added
+  status: 'active' | 'completed';
 }
 
+// ------------------
+// Task (API Response)
+// ------------------
 export interface Task {
   id: string;
   title: string;
@@ -48,6 +75,27 @@ export interface Task {
   created_at: string;
 }
 
+// ✅ New: Task Creation Payload
+export interface TaskCreatePayload {
+  title: string;
+  description?: string;
+  status: 'todo' | 'in_progress' | 'done';
+  deadline?: string;
+  assigned_user_id?: string;
+  phase_id: string; // ⬅️ required to attach task to phase
+}
+
+// ✅ New: Task Update Payload
+export interface TaskUpdatePayload {
+  title?: string;
+  description?: string;
+  status?: 'todo' | 'in_progress' | 'done';
+  deadline?: string;
+}
+
+// ------------------
+// File
+// ------------------
 export interface ProjectFile {
   id: string;
   filename: string;
@@ -59,6 +107,9 @@ export interface ProjectFile {
   is_archived: boolean;
 }
 
+// ------------------
+// File Type
+// ------------------
 export interface FileType {
   id: string;
   name: string;
@@ -66,6 +117,9 @@ export interface FileType {
   created_at: string;
 }
 
+// ------------------
+// Auth
+// ------------------
 export interface AuthResponse {
   token: string;
   role: string;

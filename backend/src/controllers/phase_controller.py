@@ -3,6 +3,7 @@ from datetime import datetime
 from src.models.phase_model import Phase
 from src.models.project_model import Project
 from src.models.user_model import User
+from src.models.task_model import Task
 
 # -------------------------------
 # Helpers
@@ -132,22 +133,23 @@ def delete_phase(phase_id, current_user):
     return jsonify({"msg": "Phase deleted successfully"}), 200
 
 # -------------------------------
-# ✅ Mark phase as completed
+# ✅ Mark phase as completed (cascade tasks)
 # -------------------------------
 def complete_phase(phase_id, current_user):
     phase = Phase.objects(id=phase_id).first()
     if not phase:
         return jsonify({"msg": "Phase not found"}), 404
 
-    project = phase.project
     if current_user.get("role") not in ["superuser", "manager"]:
         return jsonify({"msg": "Only superuser or manager can complete a phase"}), 403
 
-    # Update status
-    phase.status = "completed"
-    phase.save()
+    # ✅ Mark phase completed
+    phase.update(set__status="completed", set__updated_at=datetime.utcnow())
+
+    # ✅ Cascade tasks
+    Task.objects(phase=phase).update(set__status="done", set__updated_at=datetime.utcnow())
 
     return jsonify({
-        "msg": "Phase marked as completed",
+        "msg": "Phase and all its tasks marked as completed",
         "phase": phase.to_dict()
     }), 200

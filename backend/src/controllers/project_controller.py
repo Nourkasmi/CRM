@@ -5,6 +5,7 @@ from mongoengine.queryset.visitor import Q
 from src.models.project_model import Project
 from src.models.user_model import User
 from src.models.phase_model import Phase   # 👈 default phases
+from src.models.task_model import Task
 
 # -------------------------------
 # Create a new project (superuser or manager)
@@ -16,8 +17,9 @@ def create_project(data, current_user):
     name = data.get("name")
     description = data.get("description", "")
     deadline = data.get("deadline")
+    manager_ids = data.get("manager_ids", [])
 
-    # 🔹 Deadline is now mandatory
+    # 🔹 Deadline and name are mandatory
     if not name or not deadline:
         return jsonify({"msg": "Project name and deadline are required"}), 400
 
@@ -29,25 +31,37 @@ def create_project(data, current_user):
     if not creator:
         return jsonify({"msg": "Creator not found"}), 404
 
+    managers = []
+
+    # ✅ If manager creates → they are always manager
+    if current_user.get("role") == "manager":
+        managers = [creator]
+
+    # ✅ If superuser creates → can pick managers, fallback to self
+    elif current_user.get("role") == "superuser":
+        if manager_ids:
+            managers = list(
+                User.objects(id__in=[ObjectId(mid) for mid in manager_ids], role="manager", is_active=True)
+            )
+        if not managers:
+            managers = [creator]
+
     project = Project(
         name=name,
         description=description,
         created_by=creator,
-        deadline=deadline
+        deadline=deadline,
+        managers=managers
     )
-
-    if current_user.get("role") == "manager":
-        project.managers = [creator]
-
     project.save()
 
-    # ✅ Default phases also inherit the project deadline if none is provided
+    # ✅ Default phases
     default_phases = ["Planning", "Execution", "Closure"]
     for pname in default_phases:
         Phase(name=pname, project=project, deadline=deadline).save()
 
     return jsonify({
-        "msg": "Project created successfully with default phases",
+        "msg": "Project created successfully with default phases and managers",
         "project": project.to_dict()
     }), 201
 
@@ -260,7 +274,7 @@ def archive_project(project_id, current_user, archive=True):
     return jsonify({"msg": f"Project {'archived' if archive else 'unarchived'} successfully"}), 200
 
 # -------------------------------
-# ✅ Mark project as completed
+# ✅ Mark project as completed (cascade phases + tasks)
 # -------------------------------
 def complete_project(project_id, current_user):
     project = Project.objects(id=ObjectId(project_id)).first()
@@ -270,5 +284,15 @@ def complete_project(project_id, current_user):
     if current_user.get("role") not in ["superuser", "manager"]:
         return jsonify({"msg": "Only superuser or manager can complete a project"}), 403
 
+    # ✅ Mark project as completed
     project.update(set__status="completed", set__updated_at=datetime.utcnow())
-    return jsonify({"msg": "Project marked as completed"}), 200
+
+    # ✅ Cascade to phases
+    phases = Phase.objects(project=project)
+    for phase in phases:
+        phase.update(set__status="completed", set__updated_at=datetime.utcnow())
+
+        # ✅ Cascade to tasks
+        Task.objects(phase=phase).update(set__status="done", set__updated_at=datetime.utcnow())
+
+    return jsonify({"msg": "Project and all related phases & tasks marked as completed"}), 200

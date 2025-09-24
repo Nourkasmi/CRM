@@ -4,6 +4,7 @@ from src.models.task_model import Task
 from src.models.phase_model import Phase
 from src.models.user_model import User
 
+
 # -------------------------------
 # Helpers
 # -------------------------------
@@ -139,10 +140,12 @@ def get_tasks_by_project(project_id, current_user):
     if not project:
         return jsonify({"msg": "Project not found"}), 404
 
-    phases = project.phases
-    phase_ids = [p.id for p in phases]
+    # ✅ Query phases instead of accessing project.phases
+    phases = Phase.objects(project=project)
+    if not phases:
+        return jsonify([]), 200  # no phases → no tasks
 
-    tasks = Task.objects(phase__in=phase_ids)
+    tasks = Task.objects(phase__in=[p.id for p in phases])
     return jsonify([t.to_dict() for t in tasks]), 200
 
 
@@ -200,6 +203,7 @@ def delete_task(task_id, current_user):
 
     task.delete()
     return jsonify({"msg": "Task deleted successfully"}), 200
+
 
 # -------------------------------
 # ✅ Mark task as done

@@ -16,25 +16,18 @@ import {
   DialogActions,
   TextField,
   Chip,
-  Avatar,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  OutlinedInput,
   Autocomplete,
   Snackbar,
   Alert,
   useTheme,
-  SelectChangeEvent,
+  IconButton,
 } from "@mui/material";
 import {
   Folder as FolderIcon,
   Category as CategoryIcon,
   CheckCircle as TaskIcon,
   Add as AddIcon,
-  Person as PersonIcon,
-  ManageAccounts as ManagerIcon,
+  Done as DoneIcon,
 } from "@mui/icons-material";
 import { Project, Phase, Task, User } from "../../types";
 import { projectAPI, phaseAPI, taskAPI, userAPI } from "../../services/api";
@@ -42,7 +35,7 @@ import { Tooltip } from "@mui/material";
 
 export const ProjectPhaseTaskSplit: React.FC = () => {
   const theme = useTheme();
-  
+
   // Data state
   const [projects, setProjects] = useState<Project[]>([]);
   const [phases, setPhases] = useState<Phase[]>([]);
@@ -61,13 +54,14 @@ export const ProjectPhaseTaskSplit: React.FC = () => {
   // Dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogType, setDialogType] = useState<"project" | "phase" | "task" | null>(null);
-  
+
   // Form state
   const [formData, setFormData] = useState({
     name: "",
     description: "",
     deadline: "",
-    assignedUsers: [] as string[],
+    assignedUsers: [] as string[], // for tasks
+    managers: [] as string[], // for projects
   });
 
   // Snackbar state
@@ -103,7 +97,7 @@ export const ProjectPhaseTaskSplit: React.FC = () => {
     try {
       const res = await projectAPI.getAll();
       setProjects(res.data);
-    } catch (error) {
+    } catch {
       showSnackbar("Failed to load projects", "error");
     } finally {
       setLoadingProjects(false);
@@ -124,7 +118,7 @@ export const ProjectPhaseTaskSplit: React.FC = () => {
     try {
       const res = await phaseAPI.getByProject(projectId);
       setPhases(res.data);
-    } catch (error) {
+    } catch {
       showSnackbar("Failed to load phases", "error");
     } finally {
       setLoadingPhases(false);
@@ -136,7 +130,7 @@ export const ProjectPhaseTaskSplit: React.FC = () => {
     try {
       const res = await taskAPI.getByPhase(phaseId);
       setTasks(res.data);
-    } catch (error) {
+    } catch {
       showSnackbar("Failed to load tasks", "error");
     } finally {
       setLoadingTasks(false);
@@ -150,33 +144,28 @@ export const ProjectPhaseTaskSplit: React.FC = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'done': return '#2e7d32';
-      case 'in_progress': return '#f57c00';
-      case 'todo': return '#1976d2';
-      default: return '#757575';
-    }
-  };
-
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'done': return 'Completed';
-      case 'in_progress': return 'In Progress';
-      case 'todo': return 'To Do';
-      default: return status;
+      case "done":
+        return "#2e7d32";
+      case "in_progress":
+        return "#f57c00";
+      case "todo":
+        return "#1976d2";
+      default:
+        return "#757575";
     }
   };
 
   // Dialog handlers
   const handleOpenDialog = (type: "project" | "phase" | "task") => {
     setDialogType(type);
-    setFormData({ name: "", description: "", deadline: "", assignedUsers: [] });
+    setFormData({ name: "", description: "", deadline: "", assignedUsers: [], managers: [] });
     setDialogOpen(true);
   };
 
   const handleCloseDialog = () => {
     setDialogOpen(false);
     setDialogType(null);
-    setFormData({ name: "", description: "", deadline: "", assignedUsers: [] });
+    setFormData({ name: "", description: "", deadline: "", assignedUsers: [], managers: [] });
   };
 
   const handleCreate = async () => {
@@ -191,6 +180,7 @@ export const ProjectPhaseTaskSplit: React.FC = () => {
           name: formData.name,
           description: formData.description,
           deadline: formData.deadline,
+          manager_ids: formData.managers, // ✅ if empty → backend auto-assigns current user
         });
         await fetchProjects();
         showSnackbar("Project created successfully", "success");
@@ -206,263 +196,196 @@ export const ProjectPhaseTaskSplit: React.FC = () => {
           title: formData.name,
           description: formData.description,
           status: "todo",
+          deadline: formData.deadline,
+          assigned_user_id: formData.assignedUsers[0],
         });
         await fetchTasks(selectedPhase.id);
         showSnackbar("Task created successfully", "success");
       }
       handleCloseDialog();
-    } catch (error) {
+    } catch {
       showSnackbar(`Failed to create ${dialogType}`, "error");
     }
   };
 
-  // Render project card with hover tooltip
-  const renderProjectCard = (project: Project) => {
-    const manager = project.created_by && typeof project.created_by === 'object' ? project.created_by : null;
-
-    return (
-      <Tooltip
-        title={
-          <Box>
-            {project.description && <Typography variant="body2">{project.description}</Typography>}
-            {project.deadline && <Typography variant="body2">Due: {new Date(project.deadline).toLocaleDateString()}</Typography>}
-            {manager && <Typography variant="body2">Manager: {manager.email || "Unknown"}</Typography>}
-          </Box>
-        }
-        arrow
-        placement="right"
+  // --- Renderers ---
+  const renderProjectCard = (project: Project) => (
+    <Tooltip key={project.id} title={project.description || ""} arrow placement="right">
+      <ListItemButton
+        selected={selectedProject?.id === project.id}
+        onClick={() => setSelectedProject(selectedProject?.id === project.id ? null : project)}
+        sx={{ borderRadius: 2, mb: 1, "&.Mui-selected": { bgcolor: "primary.main", color: "white" } }}
       >
-        <ListItemButton
-          key={project.id}
-          selected={selectedProject?.id === project.id}
-          onClick={() => setSelectedProject(selectedProject?.id === project.id ? null : project)}
-          sx={{
-            borderRadius: 2,
-            mb: 1,
-            "&.Mui-selected": { bgcolor: "primary.main", color: "white" },
-            "&:hover": { bgcolor: selectedProject?.id === project.id ? "primary.dark" : "action.hover" },
-          }}
-        >
-          <ListItemText
-            primary={
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Typography variant="subtitle2" fontWeight={600}>{project.name}</Typography>
-                {project.status === "completed" ? (
-                  <Chip label="Completed" color="success" size="small" sx={{ fontWeight: 600 }} />
-                ) : (
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      projectAPI.complete(project.id)
-                        .then(() => fetchProjects())
-                        .catch(() => showSnackbar("Failed to complete project", "error"));
-                    }}
-                  >
-                    Complete
-                  </Button>
-                )}
-              </Box>
-            }
-          />
-        </ListItemButton>
-      </Tooltip>
-    );
-  };
-
-  // Render phase card with hover tooltip
-  const renderPhaseCard = (phase: Phase) => {
-    return (
-      <Tooltip
-        title={
-          <Box>
-            {phase.deadline && <Typography variant="body2">Due: {new Date(phase.deadline).toLocaleDateString()}</Typography>}
-          </Box>
-        }
-        arrow
-        placement="right"
-      >
-        <ListItemButton
-          key={phase.id}
-          selected={selectedPhase?.id === phase.id}
-          onClick={() => setSelectedPhase(selectedPhase?.id === phase.id ? null : phase)}
-          sx={{
-            borderRadius: 2,
-            mb: 1,
-            "&.Mui-selected": { bgcolor: "secondary.main", color: "white" },
-          }}
-        >
-          <ListItemIcon><CategoryIcon /></ListItemIcon>
-          <Box display="flex" justifyContent="space-between" alignItems="center" flex={1}>
-            <Typography variant="subtitle2" fontWeight={600}>{phase.name}</Typography>
-            {phase.status === "completed" ? (
-              <Chip label="Completed" color="success" size="small" sx={{ fontWeight: 600 }} />
-            ) : (
-              <Button
-                size="small"
-                variant="outlined"
-                onClick={(e) => {
+        <ListItemIcon><FolderIcon /></ListItemIcon>
+        <ListItemText
+          primary={
+            <Box display="flex" alignItems="center" justifyContent="space-between" width="100%">
+              <Typography variant="subtitle2" fontWeight={600}>{project.name}</Typography>
+              {project.status === "completed" ? (
+                <Chip label="Completed" color="success" size="small" />
+              ) : (
+                <Button size="small" variant="outlined" onClick={(e) => {
                   e.stopPropagation();
-                  phaseAPI.complete(phase.id)
-                    .then(() => fetchPhases(selectedProject!.id))
-                    .catch(() => showSnackbar("Failed to complete phase", "error"));
-                }}
-              >
-                Complete
-              </Button>
-            )}
-          </Box>
-        </ListItemButton>
-      </Tooltip>
-    );
-  };
+                  projectAPI.complete(project.id).then(() => fetchProjects())
+                    .catch(() => showSnackbar("Failed to complete project", "error"));
+                }}>Complete</Button>
+              )}
+            </Box>
+          }
+        />
+      </ListItemButton>
+    </Tooltip>
+  );
 
-  // Render task card with hover tooltip
-  const renderTaskCard = (task: Task) => {
-    const assignee = task.assigned_to && task.assigned_to.length > 0 ? task.assigned_to[0] : null;
+  const renderPhaseCard = (phase: Phase) => (
+    <ListItemButton key={phase.id} selected={selectedPhase?.id === phase.id}
+      onClick={() => setSelectedPhase(selectedPhase?.id === phase.id ? null : phase)}
+      sx={{ borderRadius: 2, mb: 1 }}>
+      <ListItemIcon><CategoryIcon /></ListItemIcon>
+      <Box display="flex" alignItems="center" justifyContent="space-between" flex={1}>
+        <Typography variant="subtitle2" fontWeight={600}>{phase.name}</Typography>
+        {phase.status === "completed" ? (
+          <Chip label="Completed" color="success" size="small" />
+        ) : (
+          <Button size="small" variant="outlined" onClick={(e) => {
+            e.stopPropagation();
+            phaseAPI.complete(phase.id).then(() => fetchPhases(selectedProject!.id))
+              .catch(() => showSnackbar("Failed to complete phase", "error"));
+          }}>Complete</Button>
+        )}
+      </Box>
+    </ListItemButton>
+  );
 
-    return (
-      <Tooltip
-        title={
-          <Box>
-            {task.description && <Typography variant="body2">{task.description}</Typography>}
-            {task.deadline && <Typography variant="body2">Due: {new Date(task.deadline).toLocaleDateString()}</Typography>}
-            {assignee && <Typography variant="body2">Assigned to: {assignee.email || "Unknown"}</Typography>}
-          </Box>
-        }
-        arrow
-        placement="right"
-      >
-        <ListItemButton key={task.id} sx={{ borderRadius: 2, mb: 1, "&:hover": { bgcolor: "action.hover" } }}>
-          <ListItemIcon><TaskIcon sx={{ color: getStatusColor(task.status) }} /></ListItemIcon>
-          <ListItemText
-            primary={
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Typography variant="subtitle2" fontWeight={600}>{task.title}</Typography>
-                {task.status === "done" ? (
-                  <Chip label="Completed" color="success" size="small" sx={{ fontWeight: 600 }} />
-                ) : (
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      taskAPI.complete(task.id)
-                        .then(() => fetchTasks(selectedPhase!.id))
-                        .catch(() => showSnackbar("Failed to complete task", "error"));
-                    }}
-                  >
-                    Complete
-                  </Button>
-                )}
-              </Box>
-            }
-          />
-        </ListItemButton>
-      </Tooltip>
-    );
-  };
+  const renderTaskCard = (task: Task) => (
+    <ListItemButton key={task.id} sx={{ borderRadius: 2, mb: 1, "&:hover": { bgcolor: "action.hover" } }}>
+      <ListItemIcon><TaskIcon sx={{ color: getStatusColor(task.status) }} /></ListItemIcon>
+      <Box display="flex" alignItems="center" justifyContent="space-between" flex={1}>
+        <Typography variant="subtitle2" fontWeight={600}>{task.title}</Typography>
+        <Box display="flex" alignItems="center" gap={1}>
+          {task.status === "done" ? (
+            <Chip label="Completed" color="success" size="small" />
+          ) : (
+            <>
+              <Chip label="In Progress" color="warning" size="small" />
+              <IconButton size="small" onClick={() =>
+                taskAPI.complete(task.id).then(() => fetchTasks(selectedPhase!.id))
+                  .catch(() => showSnackbar("Failed to complete task", "error"))
+              }><DoneIcon fontSize="small" /></IconButton>
+            </>
+          )}
+        </Box>
+      </Box>
+    </ListItemButton>
+  );
 
   return (
     <Box sx={{ p: theme.spacing(3) }}>
-      <Typography variant="h4" gutterBottom sx={{ mb: theme.spacing(3), fontWeight: 600 }}>
-        Projects Overview
-      </Typography>
+      <Typography variant="h4" gutterBottom sx={{ mb: 3, fontWeight: 600 }}>Projects Overview</Typography>
 
       <Box display="grid" gridTemplateColumns="1fr 1fr 1fr" gap={3}>
-        {/* Projects Column */}
-        <Card sx={{ borderRadius: 3, boxShadow: '0 2px 12px rgba(0,0,0,0.08)', display: "flex", flexDirection: "column", maxHeight: 600 }}>
-          <CardContent sx={{ flex: 1, overflowY: "auto", p: theme.spacing(2) }}>
+        {/* Projects */}
+        <Card sx={{ borderRadius: 3, height: 600, display: "flex", flexDirection: "column" }}>
+          <CardContent sx={{ flex: 1, overflowY: "auto", p: 2 }}>
             <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
               <Typography variant="h6" fontWeight={600}>Projects</Typography>
-              <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenDialog("project")} size="small" sx={{ borderRadius: 2 }}>Add Project</Button>
+              <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenDialog("project")} size="small">Add</Button>
             </Box>
             {loadingProjects ? (
               <Box display="flex" justifyContent="center" p={3}><CircularProgress /></Box>
-            ) : (
-              <List dense sx={{ p: 0 }}>{projects.map(renderProjectCard)}</List>
-            )}
+            ) : <List dense>{projects.map(renderProjectCard)}</List>}
           </CardContent>
         </Card>
 
-        {/* Phases Column */}
+        {/* Phases */}
         {selectedProject && (
-          <Card sx={{ borderRadius: 3, boxShadow: '0 2px 12px rgba(0,0,0,0.08)', display: "flex", flexDirection: "column", maxHeight: 600 }}>
-            <CardContent sx={{ flex: 1, overflowY: "auto", p: theme.spacing(2) }}>
+          <Card sx={{ borderRadius: 3, height: 600, display: "flex", flexDirection: "column" }}>
+            <CardContent sx={{ flex: 1, overflowY: "auto", p: 2 }}>
               <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
                 <Typography variant="h6" fontWeight={600}>Phases</Typography>
-                <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenDialog("phase")} size="small" sx={{ borderRadius: 2 }}>Add Phase</Button>
+                <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenDialog("phase")} size="small">Add</Button>
               </Box>
               {loadingPhases ? (
                 <Box display="flex" justifyContent="center" p={3}><CircularProgress /></Box>
               ) : phases.length === 0 ? (
-                <Typography variant="body2" color="textSecondary" textAlign="center" py={3}>No phases found for this project</Typography>
-              ) : (
-                <List dense sx={{ p: 0 }}>{phases.map(renderPhaseCard)}</List>
-              )}
+                <Typography variant="body2" color="textSecondary" textAlign="center" py={3}>No phases found</Typography>
+              ) : <List dense>{phases.map(renderPhaseCard)}</List>}
             </CardContent>
           </Card>
         )}
 
-        {/* Tasks Column */}
+        {/* Tasks */}
         {selectedPhase && (
-          <Card sx={{ borderRadius: 3, boxShadow: '0 2px 12px rgba(0,0,0,0.08)', display: "flex", flexDirection: "column", maxHeight: 600 }}>
-            <CardContent sx={{ flex: 1, overflowY: "auto", p: theme.spacing(2) }}>
+          <Card sx={{ borderRadius: 3, height: 600, display: "flex", flexDirection: "column" }}>
+            <CardContent sx={{ flex: 1, overflowY: "auto", p: 2 }}>
               <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
                 <Typography variant="h6" fontWeight={600}>Tasks</Typography>
-                <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenDialog("task")} size="small" sx={{ borderRadius: 2 }}>Add Task</Button>
+                <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenDialog("task")} size="small">Add</Button>
               </Box>
               {loadingTasks ? (
                 <Box display="flex" justifyContent="center" p={3}><CircularProgress /></Box>
               ) : tasks.length === 0 ? (
-                <Typography variant="body2" color="textSecondary" textAlign="center" py={3}>No tasks found for this phase</Typography>
-              ) : (
-                <List dense sx={{ p: 0 }}>{tasks.map(renderTaskCard)}</List>
-              )}
+                <Typography variant="body2" color="textSecondary" textAlign="center" py={3}>No tasks found</Typography>
+              ) : <List dense>{tasks.map(renderTaskCard)}</List>}
             </CardContent>
           </Card>
         )}
       </Box>
 
-      {/* Create Dialog */}
+      {/* Dialog */}
       <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontWeight: 600 }}>
-          Create New {dialogType === "project" ? "Project" : dialogType === "phase" ? "Phase" : "Task"}
-        </DialogTitle>
+        <DialogTitle>Create New {dialogType}</DialogTitle>
         <DialogContent>
-          <TextField margin="normal" fullWidth label={dialogType === "task" ? "Task Title" : "Name"} value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />
+          <TextField margin="normal" fullWidth label={dialogType === "task" ? "Task Title" : "Name"}
+            value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />
           {(dialogType === "project" || dialogType === "task") && (
-            <TextField margin="normal" fullWidth label="Description" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} multiline rows={3} />
+            <TextField margin="normal" fullWidth label="Description" multiline rows={3}
+              value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} />
           )}
-          <TextField margin="normal" fullWidth type="date" label="Deadline" InputLabelProps={{ shrink: true }} value={formData.deadline} onChange={(e) => setFormData({ ...formData, deadline: e.target.value })} required />
+          <TextField margin="normal" fullWidth type="date" label="Deadline" InputLabelProps={{ shrink: true }}
+            value={formData.deadline} onChange={(e) => setFormData({ ...formData, deadline: e.target.value })} required />
+
+          {/* ✅ Manager selection for projects */}
           {dialogType === "project" && (
             <Autocomplete
               multiple
-              options={users}
-              getOptionLabel={(user) => `${user.name || user.email} (${user.email})`}
-              value={users.filter(user => formData.assignedUsers.includes(user.id))}
-              onChange={(event, newValue) => setFormData({ ...formData, assignedUsers: newValue.map(user => user.id) })}
-              renderTags={(value, getTagProps) => value.map((user, index) => (
-                <Chip {...getTagProps({ index })} key={user.id} avatar={<Avatar sx={{ width: 24, height: 24, fontSize: "0.8rem" }}>{(user.name || user.email)[0].toUpperCase()}</Avatar>} label={user.name || user.email} size="small" />
-              ))}
+              options={users.filter((u) => u.role === "manager")}
+              getOptionLabel={(user) => `${user.name || user.email}`}
+              onChange={(event, newValue) =>
+                setFormData({ ...formData, managers: newValue.map((u) => u.id) })
+              }
               renderInput={(params) => (
-                <TextField {...params} margin="normal" label="Assign Users" placeholder="Select users to assign to this project" helperText="Users assigned here will have access to this project" />
+                <TextField {...params} margin="normal" label="Assign Managers (optional)" placeholder="Select managers" />
+              )}
+            />
+          )}
+
+          {/* ✅ User selection for tasks */}
+          {dialogType === "task" && (
+            <Autocomplete
+              options={users.filter((u) => u.role === "user")}
+              getOptionLabel={(user) => `${user.name || user.email}`}
+              onChange={(event, newValue) =>
+                setFormData({ ...formData, assignedUsers: newValue ? [newValue.id] : [] })
+              }
+              renderInput={(params) => (
+                <TextField {...params} margin="normal" label="Assign User" placeholder="Select user" />
               )}
             />
           )}
         </DialogContent>
-        <DialogActions sx={{ p: 3 }}>
+        <DialogActions>
           <Button onClick={handleCloseDialog}>Cancel</Button>
-          <Button variant="contained" onClick={handleCreate} disabled={!formData.name.trim() || !formData.deadline} sx={{ borderRadius: 2 }}>
-            Create {dialogType === "project" ? "Project" : dialogType === "phase" ? "Phase" : "Task"}
-          </Button>
+          <Button variant="contained" onClick={handleCreate}
+            disabled={!formData.name.trim() || !formData.deadline}>Create</Button>
         </DialogActions>
       </Dialog>
 
       {/* Snackbar */}
-      <Snackbar open={snackbar.open} autoHideDuration={4000} onClose={() => setSnackbar({ ...snackbar, open: false })} anchorOrigin={{ vertical: 'top', horizontal: 'center' }}>
-        <Alert onClose={() => setSnackbar({ ...snackbar, open: false })} severity={snackbar.severity} sx={{ width: '100%' }}>
+      <Snackbar open={snackbar.open} autoHideDuration={4000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}>
+        <Alert onClose={() => setSnackbar({ ...snackbar, open: false })} severity={snackbar.severity} sx={{ width: "100%" }}>
           {snackbar.message}
         </Alert>
       </Snackbar>
