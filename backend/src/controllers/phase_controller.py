@@ -1,9 +1,12 @@
 from flask import jsonify
 from datetime import datetime
+from bson import ObjectId
 from src.models.phase_model import Phase
 from src.models.project_model import Project
 from src.models.user_model import User
 from src.models.task_model import Task
+from src.utils.identity_helper import parse_identity  # ✅ Use the new shared helper
+
 
 # -------------------------------
 # Helpers
@@ -13,7 +16,6 @@ def parse_deadline(deadline_str):
     if not deadline_str:
         return None
     try:
-        # Accepts "2025-10-01T00:00:00" or with "Z"
         return datetime.fromisoformat(deadline_str.replace("Z", "+00:00"))
     except Exception:
         return None
@@ -23,17 +25,19 @@ def parse_deadline(deadline_str):
 # Create a new custom phase (superuser/manager only)
 # -------------------------------
 def create_phase(project_id, data, current_user):
-    if current_user.get("role") not in ["superuser", "manager"]:
+    user_id, role, is_active = parse_identity(current_user)
+
+    if role not in ["superuser", "manager"]:
         return jsonify({"msg": "Only superusers or managers can create phases"}), 403
 
-    project = Project.objects(id=project_id).first()
+    project = Project.objects(id=ObjectId(project_id)).first()
     if not project:
         return jsonify({"msg": "Project not found"}), 404
 
-    # Manager can only add phases to projects they manage/own
-    if current_user.get("role") == "manager" and \
-       str(current_user["id"]) not in [str(m.id) for m in project.managers] and \
-       str(current_user["id"]) != str(project.created_by.id):
+    # Managers can only add phases to projects they manage or created
+    if role == "manager" and \
+       user_id not in [str(m.id) for m in project.managers] and \
+       user_id != str(project.created_by.id):
         return jsonify({"msg": "You are not authorized to add phases to this project"}), 403
 
     name = data.get("name")
@@ -50,31 +54,29 @@ def create_phase(project_id, data, current_user):
     if Phase.objects(name=name, project=project).first():
         return jsonify({"msg": f"Phase '{name}' already exists in this project"}), 400
 
-    phase = Phase(
-        name=name,
-        project=project,
-        deadline=deadline
-    ).save()
+    phase = Phase(name=name, project=project, deadline=deadline).save()
 
-    return jsonify({"msg": "Phase created successfully", "phase": phase.to_dict()}), 201
+    return jsonify({
+        "msg": "Phase created successfully",
+        "phase": phase.to_dict()
+    }), 201
 
 
 # -------------------------------
 # Get all phases of a project
 # -------------------------------
 def get_phases(project_id, current_user):
-    project = Project.objects(id=project_id).first()
+    user_id, role, is_active = parse_identity(current_user)
+
+    project = Project.objects(id=ObjectId(project_id)).first()
     if not project:
         return jsonify({"msg": "Project not found"}), 404
 
-    role = current_user.get("role")
-    user_id = current_user.get("id")
-
-    # Check access
+    # Access control
     if role != "superuser" and \
-       str(user_id) not in [str(m.id) for m in project.managers] and \
-       str(user_id) != str(project.created_by.id) and \
-       str(user_id) not in [str(u.id) for u in project.members]:
+       user_id not in [str(m.id) for m in project.managers] and \
+       user_id != str(project.created_by.id) and \
+       user_id not in [str(u.id) for u in project.members]:
         return jsonify({"msg": "You are not authorized to view this project's phases"}), 403
 
     phases = Phase.objects(project=project)
@@ -85,15 +87,15 @@ def get_phases(project_id, current_user):
 # Update a phase (superuser/manager only)
 # -------------------------------
 def update_phase(phase_id, data, current_user):
-    phase = Phase.objects(id=phase_id).first()
+    user_id, role, is_active = parse_identity(current_user)
+
+    phase = Phase.objects(id=ObjectId(phase_id)).first()
     if not phase:
         return jsonify({"msg": "Phase not found"}), 404
 
     project = phase.project
-    role = current_user.get("role")
-    user_id = current_user.get("id")
 
-    if role != "superuser" and str(user_id) not in [str(m.id) for m in project.managers]:
+    if role != "superuser" and user_id not in [str(m.id) for m in project.managers]:
         return jsonify({"msg": "Only superuser or project manager can update this phase"}), 403
 
     update_fields = {}
@@ -118,29 +120,31 @@ def update_phase(phase_id, data, current_user):
 # Delete a phase (superuser/manager only)
 # -------------------------------
 def delete_phase(phase_id, current_user):
-    phase = Phase.objects(id=phase_id).first()
+    user_id, role, is_active = parse_identity(current_user)
+
+    phase = Phase.objects(id=ObjectId(phase_id)).first()
     if not phase:
         return jsonify({"msg": "Phase not found"}), 404
 
     project = phase.project
-    role = current_user.get("role")
-    user_id = current_user.get("id")
-
-    if role != "superuser" and str(user_id) not in [str(m.id) for m in project.managers]:
+    if role != "superuser" and user_id not in [str(m.id) for m in project.managers]:
         return jsonify({"msg": "Only superuser or project manager can delete this phase"}), 403
 
     phase.delete()
     return jsonify({"msg": "Phase deleted successfully"}), 200
 
+
 # -------------------------------
 # ✅ Mark phase as completed (cascade tasks)
 # -------------------------------
 def complete_phase(phase_id, current_user):
-    phase = Phase.objects(id=phase_id).first()
+    user_id, role, is_active = parse_identity(current_user)
+
+    phase = Phase.objects(id=ObjectId(phase_id)).first()
     if not phase:
         return jsonify({"msg": "Phase not found"}), 404
 
-    if current_user.get("role") not in ["superuser", "manager"]:
+    if role not in ["superuser", "manager"]:
         return jsonify({"msg": "Only superuser or manager can complete a phase"}), 403
 
     # ✅ Mark phase completed

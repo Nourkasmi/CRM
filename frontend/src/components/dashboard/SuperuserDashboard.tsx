@@ -55,8 +55,8 @@ import {
   Tooltip,
   Legend,
 } from "recharts";
-import { Project, User, ProjectFile, FileType, Task, Phase } from "../../types";
-import { projectAPI, userAPI, fileAPI, fileTypeAPI, taskAPI, phaseAPI } from "../../services/api";
+import { Project, User, FileType } from "../../types";
+import { projectAPI, userAPI, fileTypeAPI } from "../../services/api";
 
 const COLORS = ["#1976d2", "#2e7d32", "#f57c00", "#d32f2f", "#0097a7"];
 
@@ -71,10 +71,7 @@ export const SuperuserDashboard: React.FC = () => {
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [users, setUsers] = useState<User[]>([]);
-  const [files, setFiles] = useState<ProjectFile[]>([]);
   const [fileTypes, setFileTypes] = useState<FileType[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [phases, setPhases] = useState<Phase[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
@@ -94,9 +91,10 @@ export const SuperuserDashboard: React.FC = () => {
   }, []);
 
   const loadAllData = async () => {
+    setLoading(true);
     try {
       const [projectsRes, usersRes, fileTypesRes] = await Promise.all([
-        projectAPI.getAll(),
+        projectAPI.getAllWithStats(), // ✅ uses aggregated stats
         userAPI.getAll(),
         fileTypeAPI.getAll(),
       ]);
@@ -104,37 +102,6 @@ export const SuperuserDashboard: React.FC = () => {
       setProjects(projectsRes.data);
       setUsers(usersRes.data);
       setFileTypes(fileTypesRes.data);
-
-      const allFiles: ProjectFile[] = [];
-      const allTasks: Task[] = [];
-      const allPhases: Phase[] = [];
-
-      for (const project of projectsRes.data) {
-        try {
-          const filesRes = await fileAPI.getByProject(project.id);
-          allFiles.push(...filesRes.data);
-        } catch (err) {
-          console.error(`Failed to load files for project ${project.id}:`, err);
-        }
-
-        try {
-          const tasksRes = await taskAPI.getByProject(project.id);
-          allTasks.push(...tasksRes.data);
-        } catch (err) {
-          console.error(`Failed to load tasks for project ${project.id}:`, err);
-        }
-
-        try {
-          const phasesRes = await phaseAPI.getByProject(project.id);
-          allPhases.push(...phasesRes.data);
-        } catch (err) {
-          console.error(`Failed to load phases for project ${project.id}:`, err);
-        }
-      }
-
-      setFiles(allFiles);
-      setTasks(allTasks);
-      setPhases(allPhases);
       setError("");
     } catch (err: any) {
       console.error("Failed to load data:", err);
@@ -150,7 +117,7 @@ export const SuperuserDashboard: React.FC = () => {
     archivedProjects: projects.filter((p) => p.is_archived).length,
     totalUsers: users.length,
     pendingUsers: users.filter((u) => !u.is_active).length,
-    totalFiles: files.length,
+    totalFiles: projects.reduce((sum, p) => sum + (p.file_count || 0), 0),
   };
 
   // Activity (latest 5 each)
@@ -162,20 +129,22 @@ export const SuperuserDashboard: React.FC = () => {
     .sort((a, b) => new Date(b.date || "").getTime() - new Date(a.date || "").getTime())
     .slice(0, 5);
 
-  const phaseActivity = phases
-    .map((ph) => ({
-      message: ph.status === "completed" ? `Phase "${ph.name}" was completed` : `Phase "${ph.name}" was created`,
-      date: ph.created_at,
-    }))
-    .sort((a, b) => new Date(b.date || "").getTime() - new Date(a.date || "").getTime())
+  const phaseActivity = projects
+    .flatMap((p) =>
+      Array.from({ length: p.phase_count || 0 }, (_, i) => ({
+        message: `Phase ${i + 1} for project "${p.name}" exists`,
+        date: p.created_at,
+      }))
+    )
     .slice(0, 5);
 
-  const taskActivity = tasks
-    .map((t) => ({
-      message: t.status === "done" ? `Task "${t.title}" completed` : `Task "${t.title}" created`,
-      date: t.created_at,
-    }))
-    .sort((a, b) => new Date(b.date || "").getTime() - new Date(a.date || "").getTime())
+  const taskActivity = projects
+    .flatMap((p) =>
+      Array.from({ length: p.task_count || 0 }, (_, i) => ({
+        message: `Task ${i + 1} in project "${p.name}" exists`,
+        date: p.created_at,
+      }))
+    )
     .slice(0, 5);
 
   const userActivity = users
@@ -184,9 +153,13 @@ export const SuperuserDashboard: React.FC = () => {
     .sort((a, b) => new Date(b.date || "").getTime() - new Date(a.date || "").getTime())
     .slice(0, 5);
 
-  const fileActivity = files
-    .map((f) => ({ message: `File "${f.filename}" uploaded`, date: f.uploaded_at }))
-    .sort((a, b) => new Date(b.date || "").getTime() - new Date(a.date || "").getTime())
+  const fileActivity = projects
+    .flatMap((p) =>
+      Array.from({ length: p.file_count || 0 }, (_, i) => ({
+        message: `File ${i + 1} uploaded in project "${p.name}"`,
+        date: p.created_at,
+      }))
+    )
     .slice(0, 5);
 
   const activityLists = [projectActivity, phaseActivity, taskActivity, userActivity, fileActivity];
@@ -219,9 +192,16 @@ export const SuperuserDashboard: React.FC = () => {
     }, [])
     .sort((a, b) => new Date(a.month + " 1").getTime() - new Date(b.month + " 1").getTime());
 
-  const fileTypeData = fileTypes
-    .map((ft) => ({ name: ft.name, value: files.filter((f) => f.filetype?.name === ft.name).length }))
-    .filter((item) => item.value > 0);
+const fileTypeData = Object.entries(
+  projects.reduce((acc, p) => {
+    if (p.file_stats) {
+      for (const [ft, count] of Object.entries(p.file_stats)) {
+        acc[ft] = (acc[ft] || 0) + (count as number);
+      }
+    }
+    return acc;
+  }, {} as Record<string, number>)
+).map(([name, value]) => ({ name, value }));
 
   const upcomingDeadlines = projects
     .filter((p) => p.deadline && new Date(p.deadline) > new Date() && !p.is_archived)
@@ -275,64 +255,78 @@ export const SuperuserDashboard: React.FC = () => {
 
       {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
 
-      {/* ======= KPI (left) + Activity (right) in a two-column responsive grid ======= */}
+      {/* ======= KPI (left) + Activity (right) ======= */}
       <Box
         sx={{
           display: "grid",
-          gridTemplateColumns: { xs: "1fr", md: "2fr 1fr" }, // activity sits to the right on md+
+          gridTemplateColumns: { xs: "1fr", md: "2fr 1fr" },
           gap: 3,
           mb: 4,
           alignItems: "start",
         }}
       >
-        {/* Left column: KPI cards (3 per row) */}
+        {/* KPI cards */}
         <Box>
-          <Grid container spacing={3}>
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+              gap: 3,
+            }}
+          >
             {kpiCards.map((kpi, index) => (
-              <Grid item xs={12} sm={6} md={4} key={index}>
-                <Card
+              <Card
+                key={index}
+                sx={{
+                  borderRadius: 3,
+                  minHeight: 160,
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "center",
+                  boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
+                  transition: "all 0.3s ease",
+                  "&:hover": {
+                    transform: "translateY(-4px)",
+                    boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
+                  },
+                }}
+              >
+                <CardContent
                   sx={{
-                    borderRadius: 3,
                     height: "100%",
-                    boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
-                    transition: "all 0.3s ease",
-                    "&:hover": {
-                      transform: "translateY(-4px)",
-                      boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
-                    },
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    p: 3,
                   }}
                 >
-                  <CardContent sx={{ p: 3 }}>
-                    <Box display="flex" alignItems="center" justifyContent="space-between">
-                      <Box>
-                        <Typography variant="h4" sx={{ color: kpi.color, fontWeight: 700, mb: 0.5 }}>
-                          {kpi.value}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
-                          {kpi.title}
-                        </Typography>
-                      </Box>
-                      <Box
-                        sx={{
-                          p: 1.5,
-                          borderRadius: 2,
-                          backgroundColor: `${kpi.color}15`,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                      >
-                        <kpi.icon sx={{ fontSize: 28, color: kpi.color }} />
-                      </Box>
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Grid>
+                  <Box>
+                    <Typography variant="h4" sx={{ color: kpi.color, fontWeight: 700, mb: 0.5 }}>
+                      {kpi.value}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
+                      {kpi.title}
+                    </Typography>
+                  </Box>
+                  <Box
+                    sx={{
+                      p: 1.5,
+                      borderRadius: 2,
+                      backgroundColor: `${kpi.color}15`,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <kpi.icon sx={{ fontSize: 28, color: kpi.color }} />
+                  </Box>
+                </CardContent>
+              </Card>
             ))}
-          </Grid>
+          </Box>
         </Box>
 
-        {/* Right column: Activity feed with tabs */}
+        {/* Activity feed */}
         <Box>
           <Card sx={{ borderRadius: 3, boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}>
             <CardContent sx={{ p: 3 }}>
@@ -383,8 +377,9 @@ export const SuperuserDashboard: React.FC = () => {
 
       {/* Charts */}
       <Grid container spacing={4} sx={{ mb: 4 }}>
-        <Grid item xs={12} md={6}>
-          <Card sx={{ borderRadius: 3, boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}>
+        {/* File Types */}
+        <Grid item xs={12} md={4}>
+          <Card sx={{ borderRadius: 3, boxShadow: "0 2px 12px rgba(0,0,0,0.08)", height: "100%" }}>
             <CardContent sx={{ p: 3 }}>
               <Box display="flex" alignItems="center" gap={1} mb={2}>
                 <Assessment sx={{ color: "#1976d2" }} />
@@ -392,10 +387,10 @@ export const SuperuserDashboard: React.FC = () => {
                   File Types Distribution
                 </Typography>
               </Box>
-              <Box sx={{ height: 300 }}>
+              <Box sx={{ height: 250 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={fileTypeData} cx="50%" cy="50%" outerRadius={100} dataKey="value">
+                    <Pie data={fileTypeData} cx="50%" cy="50%" outerRadius={80} dataKey="value">
                       {fileTypeData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
@@ -409,8 +404,9 @@ export const SuperuserDashboard: React.FC = () => {
           </Card>
         </Grid>
 
-        <Grid item xs={12} md={6}>
-          <Card sx={{ borderRadius: 3, boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}>
+        {/* Projects Over Time */}
+        <Grid item xs={12} md={4}>
+          <Card sx={{ borderRadius: 3, boxShadow: "0 2px 12px rgba(0,0,0,0.08)", height: "100%" }}>
             <CardContent sx={{ p: 3 }}>
               <Box display="flex" alignItems="center" gap={1} mb={2}>
                 <InsertChart sx={{ color: "#2e7d32" }} />
@@ -418,7 +414,7 @@ export const SuperuserDashboard: React.FC = () => {
                   Projects Created Over Time
                 </Typography>
               </Box>
-              <Box sx={{ height: 300 }}>
+              <Box sx={{ height: 250 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={projectsOverTime}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -433,6 +429,44 @@ export const SuperuserDashboard: React.FC = () => {
                       }}
                     />
                     <Bar dataKey="count" fill="#1976d2" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* Tasks by Status */}
+        <Grid item xs={12} md={4}>
+          <Card sx={{ borderRadius: 3, boxShadow: "0 2px 12px rgba(0,0,0,0.08)", height: "100%" }}>
+            <CardContent sx={{ p: 3 }}>
+              <Box display="flex" alignItems="center" gap={1} mb={2}>
+                <AssignmentTurnedIn sx={{ color: "#f57c00" }} />
+                <Typography variant="h6" sx={{ fontWeight: 600, color: "#1e293b" }}>
+                  Tasks by Status
+                </Typography>
+              </Box>
+              <Box sx={{ height: 250 }}>
+                <ResponsiveContainer width="100%" height="100%">
+<BarChart
+  data={[
+    { status: "To-Do", count: projects.reduce((sum, p) => sum + (p.task_stats?.todo || 0), 0) },
+    { status: "In Progress", count: projects.reduce((sum, p) => sum + (p.task_stats?.in_progress || 0), 0) },
+    { status: "Done", count: projects.reduce((sum, p) => sum + (p.task_stats?.done || 0), 0) },
+  ]}
+>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                    <XAxis dataKey="status" tick={{ fontSize: 12 }} stroke="#64748b" />
+                    <YAxis allowDecimals={false} tick={{ fontSize: 12 }} stroke="#64748b" />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "white",
+                        border: "none",
+                        borderRadius: 8,
+                        boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                      }}
+                    />
+                    <Bar dataKey="count" fill="#f57c00" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </Box>
@@ -506,27 +540,40 @@ export const SuperuserDashboard: React.FC = () => {
 
           <DataTableBasic
             data={projects
-              .filter((p) => (statusFilter === "active" ? !p.is_archived : statusFilter === "archived" ? p.is_archived : true))
+              .filter((p) =>
+                statusFilter === "active"
+                  ? !p.is_archived
+                  : statusFilter === "archived"
+                  ? p.is_archived
+                  : true
+              )
               .map((p) => [
                 p.name || "—",
                 p.description || "No description",
                 p.created_by?.email || "Unknown",
-                p.created_at ? new Date(p.created_at).toLocaleDateString() : "—",
-                p.deadline ? new Date(p.deadline).toLocaleDateString() : "No deadline",
+                p.created_at
+                  ? new Date(p.created_at).toLocaleDateString()
+                  : "—",
+                p.deadline
+                  ? new Date(p.deadline).toLocaleDateString()
+                  : "No deadline",
                 p.is_archived
                   ? '<span class="badge bg-secondary">Archived</span>'
                   : '<span class="badge bg-success">Active</span>',
-                `<div style="display:flex; gap:4px; align-items:center;">
-                   <button class="MuiButton-root MuiButton-outlined MuiButton-outlinedPrimary MuiButton-sizeSmall" onclick="window.dispatchEvent(new CustomEvent('editProject',{detail:${p.id}}))">
-                     Edit
-                   </button>
-                   <button class="MuiButton-root MuiButton-outlined MuiButton-outlinedSecondary MuiButton-sizeSmall" onclick="window.dispatchEvent(new CustomEvent('viewProject',{detail:${p.id}}))">
-                     View
-                   </button>
-                 </div>`,
               ])}
-            columns={["Project Name", "Description", "Created By", "Created", "Deadline", "Status", "Actions"]}
-            options={{ responsive: true, dom: "Bfrtip", buttons: ["copy", "csv", "print"] }}
+            columns={[
+              "Project Name",
+              "Description",
+              "Created By",
+              "Created",
+              "Deadline",
+              "Status",
+            ]}
+            options={{
+              responsive: true,
+              dom: "Bfrtip",
+              buttons: ["copy", "csv", "print"],
+            }}
           />
         </CardContent>
       </Card>

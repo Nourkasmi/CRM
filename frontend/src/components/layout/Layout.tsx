@@ -22,7 +22,6 @@ import {
   Dashboard,
   Work,
   Folder,
-  Category,
   AccountCircle,
   ExitToApp,
   People,
@@ -70,12 +69,9 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
     if (user?.role === 'superuser') {
       baseItems.splice(1, 0, { text: 'Users', icon: <People />, path: '/users' });
-      baseItems.push({ text: 'File Types', icon: <Category />, path: '/file-types' });
     }
 
-    if (user?.role === 'manager') {
-      baseItems.push({ text: 'File Types', icon: <Category />, path: '/file-types' });
-    }
+    // ❌ Removed "File Types" for all roles
 
     return baseItems;
   };

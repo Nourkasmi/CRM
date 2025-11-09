@@ -5,10 +5,20 @@ import {
   CardContent,
   Typography,
   Alert,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  Select,
+  MenuItem,
+  InputLabel,
+  FormControl,
 } from '@mui/material';
 import { useAuth } from '../../contexts/AuthContext';
-import { ProjectFile } from '../../types';
-import { fileAPI } from '../../services/api';
+import { ProjectFile, Project, FileType } from '../../types';
+import { fileAPI, projectAPI, fileTypeAPI } from '../../services/api';
 import DataTableBasic from '../common/DataTableBasic';
 
 export const FileManager: React.FC = () => {
@@ -20,19 +30,48 @@ export const FileManager: React.FC = () => {
   // Active/Archived filter state
   const [statusFilter, setStatusFilter] = useState<'active' | 'archived'>('active');
 
+  // Upload dialog states
+  const [openUpload, setOpenUpload] = useState(false);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [fileTypes, setFileTypes] = useState<FileType[]>([]);
+  const [selectedProject, setSelectedProject] = useState('');
+  const [selectedFileType, setSelectedFileType] = useState('');
+  const [newFileTypeName, setNewFileTypeName] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
   useEffect(() => {
     loadFiles();
+    loadProjects();
+    loadFileTypes();
   }, []);
 
   const loadFiles = async () => {
     setLoading(true);
     try {
-      const response = await fileAPI.getAll(true); // include archived
+      const response = await fileAPI.getAll(true);
       setFiles(response.data);
     } catch (err) {
       setError('Failed to load files');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadProjects = async () => {
+    try {
+      const res = await projectAPI.getAll();
+      setProjects(res.data);
+    } catch (err) {
+      setError('Failed to load projects');
+    }
+  };
+
+  const loadFileTypes = async () => {
+    try {
+      const res = await fileTypeAPI.getAll();
+      setFileTypes(res.data);
+    } catch (err) {
+      setError('Failed to load file types');
     }
   };
 
@@ -64,9 +103,36 @@ export const FileManager: React.FC = () => {
     }
   };
 
+  const handleUpload = async () => {
+    try {
+      let fileTypeId = selectedFileType;
+
+      // If user chose "create new type"
+      if (selectedFileType === 'create_new' && newFileTypeName) {
+        const res = await fileTypeAPI.create({ name: newFileTypeName });
+        fileTypeId = res.data.id;
+        await loadFileTypes();
+      }
+
+      if (!selectedFile || !selectedProject || !fileTypeId) {
+        setError('Please select project, file type, and file');
+        return;
+      }
+
+      await fileAPI.upload(selectedProject, selectedFile, fileTypeId);
+      setOpenUpload(false);
+      setSelectedFile(null);
+      setSelectedFileType('');
+      setNewFileTypeName('');
+      await loadFiles();
+    } catch (err) {
+      setError('Failed to upload file');
+    }
+  };
+
   const canModify = user?.role === 'superuser' || user?.role === 'manager';
 
-  // ✅ Prepare rows (plain HTML only)
+  // ✅ Prepare rows
   const rows = files
     .filter((f) => (statusFilter === 'active' ? !f.is_archived : f.is_archived))
     .map((file) => [
@@ -90,7 +156,6 @@ export const FileManager: React.FC = () => {
       `,
     ]);
 
-  // ✅ Attach event listeners after table renders
   useEffect(() => {
     const handleClick = (e: Event) => {
       const target = e.target as HTMLElement;
@@ -121,7 +186,117 @@ export const FileManager: React.FC = () => {
         Files
       </Typography>
 
-      {/* KPI Cards - Modern style */}
+      {/* Active/Archived Filters + Upload button aligned right */}
+      <Box mb={3} display="flex" justifyContent="space-between" alignItems="center">
+        <Box display="flex" gap={2}>
+          <button
+            onClick={() => setStatusFilter('active')}
+            style={{
+              background: statusFilter === 'active' ? '#1976d2' : 'transparent',
+              color: statusFilter === 'active' ? '#fff' : '#1976d2',
+              border: '1px solid #1976d2',
+              borderRadius: '6px',
+              padding: '6px 14px',
+              cursor: 'pointer',
+              fontWeight: 600,
+            }}
+          >
+            Active
+          </button>
+          <button
+            onClick={() => setStatusFilter('archived')}
+            style={{
+              background: statusFilter === 'archived' ? '#1976d2' : 'transparent',
+              color: statusFilter === 'archived' ? '#fff' : '#1976d2',
+              border: '1px solid #1976d2',
+              borderRadius: '6px',
+              padding: '6px 14px',
+              cursor: 'pointer',
+              fontWeight: 600,
+            }}
+          >
+            Archived
+          </button>
+        </Box>
+
+        <Button variant="contained" onClick={() => setOpenUpload(true)}>
+          + Upload File
+        </Button>
+      </Box>
+
+      {/* Upload Dialog */}
+      <Dialog open={openUpload} onClose={() => setOpenUpload(false)}>
+        <DialogTitle>Upload File</DialogTitle>
+        <DialogContent>
+          {/* Project Selector */}
+          <FormControl fullWidth sx={{ mt: 2 }}>
+            <InputLabel>Project</InputLabel>
+            <Select
+              value={selectedProject}
+              onChange={(e) => setSelectedProject(e.target.value)}
+            >
+              {projects.map((p) => (
+                <MenuItem key={p.id} value={p.id}>
+                  {p.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          {/* File Type Selector with Create New */}
+          <FormControl fullWidth sx={{ mt: 2 }}>
+            <InputLabel>File Type</InputLabel>
+            <Select
+              value={selectedFileType}
+              onChange={(e) => setSelectedFileType(e.target.value)}
+            >
+              {fileTypes.map((ft) => (
+                <MenuItem key={ft.id} value={ft.id}>
+                  {ft.name}
+                </MenuItem>
+              ))}
+              <MenuItem value="create_new">➕ Create New Type</MenuItem>
+            </Select>
+          </FormControl>
+
+          {/* Show textfield only if create_new selected */}
+          {selectedFileType === 'create_new' && (
+            <TextField
+              label="New File Type"
+              fullWidth
+              sx={{ mt: 2 }}
+              value={newFileTypeName}
+              onChange={(e) => setNewFileTypeName(e.target.value)}
+            />
+          )}
+
+          {/* File Picker */}
+          <Button variant="outlined" component="label" sx={{ mt: 2 }}>
+            Choose File
+            <input
+              type="file"
+              hidden
+              onChange={(e) => setSelectedFile(e.target.files ? e.target.files[0] : null)}
+            />
+          </Button>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenUpload(false)}>Cancel</Button>
+          <Button
+            onClick={handleUpload}
+            variant="contained"
+            disabled={
+              !selectedProject ||
+              (!selectedFileType && !newFileTypeName) ||
+              !selectedFile
+            }
+          >
+            Upload
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* KPI Cards */}
       <Box
         sx={{
           display: 'flex',
@@ -137,12 +312,7 @@ export const FileManager: React.FC = () => {
         }}
       >
         {[
-          {
-            title: 'Total Files',
-            value: files.length,
-            color: '#1976d2',
-            icon: '📂',
-          },
+          { title: 'Total Files', value: files.length, color: '#1976d2', icon: '📂' },
           {
             title: 'Active',
             value: files.filter((f) => !f.is_archived).length,
@@ -197,38 +367,6 @@ export const FileManager: React.FC = () => {
             </CardContent>
           </Card>
         ))}
-      </Box>
-
-      {/* Active/Archived Filters */}
-      <Box mb={3} display="flex" gap={2}>
-        <button
-          onClick={() => setStatusFilter('active')}
-          style={{
-            background: statusFilter === 'active' ? '#1976d2' : 'transparent',
-            color: statusFilter === 'active' ? '#fff' : '#1976d2',
-            border: '1px solid #1976d2',
-            borderRadius: '6px',
-            padding: '6px 14px',
-            cursor: 'pointer',
-            fontWeight: 600,
-          }}
-        >
-          Active
-        </button>
-        <button
-          onClick={() => setStatusFilter('archived')}
-          style={{
-            background: statusFilter === 'archived' ? '#1976d2' : 'transparent',
-            color: statusFilter === 'archived' ? '#fff' : '#1976d2',
-            border: '1px solid #1976d2',
-            borderRadius: '6px',
-            padding: '6px 14px',
-            cursor: 'pointer',
-            fontWeight: 600,
-          }}
-        >
-          Archived
-        </button>
       </Box>
 
       {error && (
