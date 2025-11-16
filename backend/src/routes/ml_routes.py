@@ -1,29 +1,32 @@
 from flask import Blueprint, request, jsonify
-import requests
+from flask_jwt_extended import jwt_required
+import joblib
+import numpy as np
 
 ml_bp = Blueprint("ml", __name__)
 
-# The internal URL of your ML API (running separately on port 5050)
-ML_API_URL = "http://127.0.0.1:5050/predict"
+# Load models once
+model = joblib.load("src/ml_api/hr_cluster_model.pkl")
+pca = joblib.load("src/ml_api/pca_transform.pkl")
+scaler = joblib.load("src/ml_api/scaler.pkl")
 
-@ml_bp.route("/predict", methods=["POST"])
-def predict_from_ml():
-    """
-    Forwards the frontend's data to the ML API for prediction
-    and returns the result back to the frontend.
-    """
+@ml_bp.route("/hr-cluster", methods=["POST"])
+@jwt_required()
+def predict_cluster():
     try:
-        payload = request.get_json()
-        if not payload or "features" not in payload:
-            return jsonify({"error": "Invalid input format"}), 400
+        data = request.get_json()
+        if not data or "features" not in data:
+            return jsonify({"error": "Missing 'features' key"}), 400
 
-        # Forward the request to your model’s Flask API
-        response = requests.post(ML_API_URL, json=payload)
+        X_input = np.array(data["features"]).reshape(1, -1)
+        X_scaled = scaler.transform(X_input)
+        X_pca = pca.transform(X_scaled)
+        cluster = model.predict(X_pca)[0]
 
-        # Forward the model’s response directly back to the frontend
-        return jsonify(response.json()), response.status_code
+        return jsonify({
+            "cluster": int(cluster),
+            "message": f"Employee belongs to cluster {int(cluster)}"
+        })
 
-    except requests.exceptions.ConnectionError:
-        return jsonify({"error": "ML API not reachable on port 5050"}), 503
     except Exception as e:
         return jsonify({"error": str(e)}), 500

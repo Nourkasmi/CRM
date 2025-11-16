@@ -15,8 +15,9 @@ from src.routes.task_routes import task_bp
 from src.routes.phase_routes import phase_bp
 from src.routes.file_routes import file_bp
 from src.routes.filetype_routes import filetype_bp
-from src.routes.ml_routes import ml_bp
+from src.ml_api.app import ml_bp
 from src.middlewares.error_handlers import register_error_handlers
+
 
 # ----------------------------------------------------
 # 🧠 APP INITIALIZATION
@@ -88,6 +89,7 @@ app.register_blueprint(phase_bp, url_prefix="/api/phases")
 app.register_blueprint(file_bp, url_prefix="/api/files")
 app.register_blueprint(filetype_bp, url_prefix="/api/filetypes")
 app.register_blueprint(ml_bp, url_prefix="/api/ml")
+
 
 # ----------------------------------------------------
 # 🧱 GLOBAL ERROR HANDLERS

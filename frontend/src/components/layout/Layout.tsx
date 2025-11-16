@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   AppBar,
   Box,
@@ -16,7 +16,7 @@ import {
   Avatar,
   Menu,
   MenuItem,
-} from '@mui/material';
+} from "@mui/material";
 import {
   Menu as MenuIcon,
   Dashboard,
@@ -25,9 +25,11 @@ import {
   AccountCircle,
   ExitToApp,
   People,
-} from '@mui/icons-material';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
+} from "@mui/icons-material";
+import PsychologyIcon from "@mui/icons-material/Psychology"; // ✅ NEW ICON
+
+import { useNavigate, useLocation } from "react-router-dom";
+import { useAuth } from "../../contexts/AuthContext";
 
 const drawerWidth = 240;
 
@@ -42,36 +44,27 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const handleDrawerToggle = () => {
-    setMobileOpen(!mobileOpen);
-  };
-
-  const handleProfileMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
-    setAnchorEl(event.currentTarget);
-  };
-
-  const handleProfileMenuClose = () => {
-    setAnchorEl(null);
-  };
+  const handleDrawerToggle = () => setMobileOpen(!mobileOpen);
+  const handleProfileMenuOpen = (event: React.MouseEvent<HTMLElement>) => setAnchorEl(event.currentTarget);
+  const handleProfileMenuClose = () => setAnchorEl(null);
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
+    navigate("/login");
     handleProfileMenuClose();
   };
 
   const getMenuItems = () => {
     const baseItems = [
-      { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
-      { text: 'Projects', icon: <Work />, path: '/projects' },
-      { text: 'Files', icon: <Folder />, path: '/files' },
+      { text: "Dashboard", icon: <Dashboard />, path: "/dashboard" },
+      { text: "Projects", icon: <Work />, path: "/projects" },
+      { text: "Files", icon: <Folder />, path: "/files" },
+      { text: "AI Insights", icon: <PsychologyIcon />, path: "/ai-insights" }, // ✅ NEW MENU ITEM
     ];
 
-    if (user?.role === 'superuser') {
-      baseItems.splice(1, 0, { text: 'Users', icon: <People />, path: '/users' });
+    if (user?.role === "superuser") {
+      baseItems.splice(1, 0, { text: "Users", icon: <People />, path: "/users" });
     }
-
-    // ❌ Removed "File Types" for all roles
 
     return baseItems;
   };
@@ -100,7 +93,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   );
 
   return (
-    <Box sx={{ display: 'flex' }}>
+    <Box sx={{ display: "flex" }}>
       <CssBaseline />
       <AppBar
         position="fixed"
@@ -115,14 +108,15 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             aria-label="open drawer"
             edge="start"
             onClick={handleDrawerToggle}
-            sx={{ mr: 2, display: { sm: 'none' } }}
+            sx={{ mr: 2, display: { sm: "none" } }}
           >
             <MenuIcon />
           </IconButton>
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
-            {location.pathname.split('/')[1]?.charAt(0).toUpperCase() +
-              location.pathname.split('/')[1]?.slice(1) || 'Dashboard'}
+            {location.pathname.split("/")[1]?.charAt(0).toUpperCase() +
+              location.pathname.split("/")[1]?.slice(1) || "Dashboard"}
           </Typography>
+
           <Button
             color="inherit"
             onClick={handleProfileMenuOpen}
@@ -134,14 +128,11 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           >
             {user?.username}
           </Button>
-          <Menu
-            anchorEl={anchorEl}
-            open={Boolean(anchorEl)}
-            onClose={handleProfileMenuClose}
-          >
+
+          <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleProfileMenuClose}>
             <MenuItem
               onClick={() => {
-                navigate('/profile');
+                navigate("/profile");
                 handleProfileMenuClose();
               }}
             >
@@ -159,41 +150,33 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           </Menu>
         </Toolbar>
       </AppBar>
-      <Box
-        component="nav"
-        sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
-      >
+
+      <Box component="nav" sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}>
         <Drawer
           variant="temporary"
           open={mobileOpen}
           onClose={handleDrawerToggle}
-          ModalProps={{
-            keepMounted: true,
-          }}
+          ModalProps={{ keepMounted: true }}
           sx={{
-            display: { xs: 'block', sm: 'none' },
-            '& .MuiDrawer-paper': {
-              boxSizing: 'border-box',
-              width: drawerWidth,
-            },
+            display: { xs: "block", sm: "none" },
+            "& .MuiDrawer-paper": { boxSizing: "border-box", width: drawerWidth },
           }}
         >
           {drawer}
         </Drawer>
+
         <Drawer
           variant="permanent"
           sx={{
-            display: { xs: 'none', sm: 'block' },
-            '& .MuiDrawer-paper': {
-              boxSizing: 'border-box',
-              width: drawerWidth,
-            },
+            display: { xs: "none", sm: "block" },
+            "& .MuiDrawer-paper": { boxSizing: "border-box", width: drawerWidth },
           }}
           open
         >
           {drawer}
         </Drawer>
       </Box>
+
       <Box
         component="main"
         sx={{

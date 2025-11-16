@@ -6,24 +6,22 @@ import { theme } from "./theme";
 import { AuthProvider } from "./contexts/AuthContext";
 import { Layout } from "./components/layout/Layout";
 import { ProtectedRoute } from "./components/common/ProtectedRoute";
+
 import Login from "./components/auth/Login";
 import Register from "./components/auth/Register";
 import { SuperuserDashboard } from "./components/dashboard/SuperuserDashboard";
 import { ManagerDashboard } from "./components/dashboard/ManagerDashboard";
 import { UserDashboard } from "./components/dashboard/UserDashboard";
 import { ProjectDetail } from "./components/projects/ProjectDetail";
-import { useAuth } from "./contexts/AuthContext";
 import { ProjectPhaseTaskSplit } from "./components/projects/ProjectPhaseTaskSplit";
 import { UserList } from "./components/users/UserList";
 import FilesPage from "./components/files/FilesPage";
-
-
-// ✅ Forgot & Reset Password components
 import { ForgotPassword } from "./components/auth/ForgotPassword";
 import { ResetPassword } from "./components/auth/ResetPassword";
-
-// ✅ Task board
 import { TaskBoard } from "./components/tasks/TaskBoard";
+import AiInsights from "./components/ml/AiInsights"; // ✅ NEW IMPORT
+
+import { useAuth } from "./contexts/AuthContext";
 
 const DashboardRouter: React.FC = () => {
   const { user } = useAuth();
@@ -48,8 +46,6 @@ function App() {
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
-
-            {/* ✅ Forgot & Reset Password Routes */}
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
 
@@ -60,19 +56,13 @@ function App() {
                   <Layout>
                     <Routes>
                       <Route path="/dashboard" element={<DashboardRouter />} />
-
-                      {/* 🔹 Replace ProjectList with Split View */}
                       <Route path="/projects" element={<ProjectPhaseTaskSplit />} />
                       <Route path="/projects/:id" element={<ProjectDetail />} />
-
                       <Route path="/users" element={<UserList />} />
                       <Route path="/tasks" element={<TaskBoard projectId={1} />} />
-                      {/* NOTE: projectId={1} is a placeholder.
-                          Later you can make a global AllTasksPage 
-                          or handle dynamic project IDs. */}
-                          
-                      <Route path="/" element={<Navigate to="/dashboard" />} />
                       <Route path="/files" element={<FilesPage />} />
+                      <Route path="/ai-insights" element={<AiInsights />} /> {/* ✅ NEW ROUTE */}
+                      <Route path="/" element={<Navigate to="/dashboard" />} />
                     </Routes>
                   </Layout>
                 </ProtectedRoute>
